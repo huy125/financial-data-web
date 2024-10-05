@@ -12,7 +12,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// routes
-	mux.HandleFunc("/", handlers.HelloHandler)
+	mux.HandleFunc("/", handlers.GetStockHandler)
 
 	// Start the server
 	fmt.Println("Server is running on port 8080...")

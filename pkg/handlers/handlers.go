@@ -1,10 +1,68 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
-func HelloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, World!!!!")
+type StockMetaData struct {
+	Information 	string `json:"1. Information"`
+	Symbol 			string `json:"2. Symbol"`
+	LastRefreshed 	string `json:"3. Last Refreshed"`
+	OutputSize		string `json:"4. Output Size"`
+	TimeZone		string `json:"5. Time Zone"`
+}
+
+type TimeSeriesDaily struct {
+	StockMetaData `json:"Meta Data"`
+	TimeSeries map[string]map[string]string `json:"Time Series (Daily)"`
+}
+
+const (
+	apiKey string = "ENKU8V8KJXIVL9H2"
+	symbol string = "IBM"
+)
+
+func GetStockHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := fetchStockData(apiKey, symbol)
+
+	if err != nil {
+        http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
+    }
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error while encoding JSON: %v", err), http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
+}
+
+func fetchStockData(apiKey string, symbol string) (*TimeSeriesDaily, error) {
+	url := fmt.Sprintf("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=%s&apikey=%s", symbol, apiKey)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error while calling external api: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error with status code %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading response body: %v", err)
+	}
+
+	var data TimeSeriesDaily
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshaling JSON: %v", err)
+	}
+
+	return &data, nil
 }
