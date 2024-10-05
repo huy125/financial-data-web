@@ -9,15 +9,15 @@ import (
 
 type StockMetaData struct {
 	Information 	string `json:"1. Information"`
-	Symbol 			string `json:"2. Symbol"`
+	Symbol 		string `json:"2. Symbol"`
 	LastRefreshed 	string `json:"3. Last Refreshed"`
-	OutputSize		string `json:"4. Output Size"`
-	TimeZone		string `json:"5. Time Zone"`
+	OutputSize	string `json:"4. Output Size"`
+	TimeZone	string `json:"5. Time Zone"`
 }
 
 type TimeSeriesDaily struct {
-	StockMetaData `json:"Meta Data"`
-	TimeSeries map[string]map[string]string `json:"Time Series (Daily)"`
+	StockMetaData 	`json:"Meta Data"`
+	TimeSeries 	map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
 const (
