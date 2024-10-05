@@ -29,8 +29,8 @@ func GetStockHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := fetchStockData(apiKey, symbol)
 
 	if err != nil {
-        http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
-    }
+        	http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
+    	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
