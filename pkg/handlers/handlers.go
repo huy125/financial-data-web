@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 )
 
 type StockMetaData struct {
@@ -26,7 +28,7 @@ const (
 )
 
 func GetStockHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := fetchStockData(apiKey, symbol)
+	data, err := fetchStockData(symbol)
 
 	if err != nil {
         	http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
@@ -41,9 +43,13 @@ func GetStockHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonData)
 }
 
-func fetchStockData(apiKey string, symbol string) (*TimeSeriesDaily, error) {
-	url := fmt.Sprintf("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=%s&apikey=%s", symbol, apiKey)
+func fetchStockData(symbol string) (*TimeSeriesDaily, error) {
+	apiKey := os.Getenv("ALPHA_VANTAGE_API_KEY")
+	if apiKey == "" {
+		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
+	}
 
+	url := fmt.Sprintf("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=%s&apikey=%s", symbol, apiKey)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("error while calling external api: %v", err)
@@ -61,7 +67,7 @@ func fetchStockData(apiKey string, symbol string) (*TimeSeriesDaily, error) {
 	var data TimeSeriesDaily
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, fmt.Errorf("Error unmarshaling JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
 	}
 
 	return &data, nil
