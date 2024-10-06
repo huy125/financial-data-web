@@ -7,33 +7,44 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 )
 
 type StockMetaData struct {
-	Information 	string `json:"1. Information"`
-	Symbol 		string `json:"2. Symbol"`
-	LastRefreshed 	string `json:"3. Last Refreshed"`
-	OutputSize	string `json:"4. Output Size"`
-	TimeZone	string `json:"5. Time Zone"`
+	Information   string `json:"1. Information"`
+	Symbol        string `json:"2. Symbol"`
+	LastRefreshed string `json:"3. Last Refreshed"`
+	OutputSize    string `json:"4. Output Size"`
+	TimeZone      string `json:"5. Time Zone"`
 }
 
 type TimeSeriesDaily struct {
-	StockMetaData 	`json:"Meta Data"`
-	TimeSeries 	map[string]map[string]string `json:"Time Series (Daily)"`
+	StockMetaData `json:"Meta Data"`
+	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
-const symbol string = "IBM"
+func GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
+	symbol := r.URL.Query().Get("symbol")
+	// Remove double quotes and single quotes
+	re := regexp.MustCompile(`["']`)
+	symbol = re.ReplaceAllString(symbol, "")
 
-func GetStockHandler(w http.ResponseWriter, r *http.Request) {
+	if symbol == "" {
+		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
+		return
+	}
+
 	data, err := fetchStockData(symbol)
 
 	if err != nil {
-        	http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
-    	}
+		http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
+		return
+	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error while encoding JSON: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

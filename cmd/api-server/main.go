@@ -14,7 +14,7 @@ func main() {
 
 	loadEnv()
 
-	mux.HandleFunc("/", handlers.GetStockHandler)
+	mux.HandleFunc("/stocks", handlers.GetStockBySymbolHandler)
 
 	// Start the server
 	fmt.Println("server is running on port 8080...")
