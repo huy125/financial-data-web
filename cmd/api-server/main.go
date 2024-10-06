@@ -14,6 +14,7 @@ func main() {
 
 	loadEnv()
 
+	mux.HandleFunc("/", handlers.HelloServerHandler)
 	mux.HandleFunc("/stocks", handlers.GetStockBySymbolHandler)
 
 	// Start the server

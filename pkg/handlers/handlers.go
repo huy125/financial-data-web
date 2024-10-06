@@ -23,6 +23,10 @@ type TimeSeriesDaily struct {
 	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
+func HelloServerHandler(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Welcome to my financial server!!!")
+}
+
 func GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	symbol := r.URL.Query().Get("symbol")
 	// Remove double quotes and single quotes
