@@ -22,10 +22,7 @@ type TimeSeriesDaily struct {
 	TimeSeries 	map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
-const (
-	apiKey string = "ENKU8V8KJXIVL9H2"
-	symbol string = "IBM"
-)
+const symbol string = "IBM"
 
 func GetStockHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := fetchStockData(symbol)
