@@ -1,5 +1,3 @@
-module financial-data-web
+module github.com/huy125/financial-data-web
 
 go 1.23.1
-
-require github.com/joho/godotenv v1.5.1 // indirect
