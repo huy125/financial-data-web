@@ -1,2 +1,3 @@
 # financial-data-web
-A web for aggregating financial information
+
+A financial information aggregator service that provides a REST API.

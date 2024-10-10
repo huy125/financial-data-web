@@ -1,16 +1,18 @@
-package handlers
+package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"regexp"
+	"strings"
 )
 
-type StockMetaData struct {
+// StockMetadata represents the metadata of a stock.
+type StockMetadata struct {
 	Information   string `json:"1. Information"`
 	Symbol        string `json:"2. Symbol"`
 	LastRefreshed string `json:"3. Last Refreshed"`
@@ -18,41 +20,51 @@ type StockMetaData struct {
 	TimeZone      string `json:"5. Time Zone"`
 }
 
+// TimeSeriesDaily represents the daily time series of a stock.
 type TimeSeriesDaily struct {
-	StockMetaData `json:"Meta Data"`
+	StockMetadata `json:"Meta Data"`
 	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
-func HelloServerHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Welcome to my financial server!!!")
-}
-
-func GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
-	symbol := r.URL.Query().Get("symbol")
-	// Remove double quotes and single quotes
-	re := regexp.MustCompile(`["']`)
-	symbol = re.ReplaceAllString(symbol, "")
-
-	if symbol == "" {
+// GetStockBySymbolHandler fetches stock data for the given symbol.
+func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
+	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
 		return
 	}
 
-	data, err := fetchStockData(symbol)
+	symbol := r.URL.Query().Get("symbol")
+	symbol = strings.Trim(symbol, "\"")
+	symbol = strings.Trim(symbol, "'")
 
+	data, err := fetchStockData(symbol)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("error fetching stock data: %v", err), http.StatusBadRequest)
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Could not fetch stock data: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("error while encoding JSON: %v", err), http.StatusInternalServerError)
+		http.Error(w,
+			fmt.Sprintf("could not encode JSON: %v", err),
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonData)
+	_, err = w.Write(jsonData)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("error while writing response: %v", err),
+			http.StatusInternalServerError,
+		)
+	}
 }
 
 func fetchStockData(symbol string) (*TimeSeriesDaily, error) {
@@ -67,6 +79,9 @@ func fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 		return nil, fmt.Errorf("error while calling external api: %v", err)
 	}
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error with status code %d", resp.StatusCode)
 	}

@@ -1,33 +1,27 @@
 package main
 
 import (
-	"financial-data-web/pkg/handlers"
-	"fmt"
+	"flag"
 	"log"
 	"net/http"
 
-	"github.com/joho/godotenv"
+	"github.com/huy125/financial-data-web/api"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	var apiKey string
+	flag.StringVar(&apiKey, "apiKey", "", "Alpha Vantage API Key, required for stocks endpoints")
+	flag.Parse()
 
-	loadEnv()
-
-	mux.HandleFunc("/", handlers.HelloServerHandler)
-	mux.HandleFunc("/stocks", handlers.GetStockBySymbolHandler)
-
-	// Start the server
-	fmt.Println("server is running on port 8080...")
-	err := http.ListenAndServe(":8080", mux)
-	if err != nil {
-		fmt.Println("error starting server:", err)
+	if apiKey == "" {
+		log.Fatal("apiKey is required")
 	}
-}
 
-func loadEnv() {
-	err := godotenv.Load("../../.env")
+	srv := api.New(apiKey)
+
+	log.Println("Starting server on port :8080")
+	err := http.ListenAndServe(":8080", srv)
 	if err != nil {
-		log.Fatal("error loading .env file")
+		log.Fatal("Failed to start server:", err)
 	}
 }
