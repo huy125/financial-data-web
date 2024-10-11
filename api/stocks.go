@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -37,7 +36,7 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	symbol = strings.Trim(symbol, "\"")
 	symbol = strings.Trim(symbol, "'")
 
-	data, err := fetchStockData(symbol)
+	data, err := fetchStockData(s.apiKey, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
@@ -67,8 +66,7 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func fetchStockData(symbol string) (*TimeSeriesDaily, error) {
-	apiKey := os.Getenv("ALPHA_VANTAGE_API_KEY")
+func fetchStockData(apiKey string, symbol string) (*TimeSeriesDaily, error) {
 	if apiKey == "" {
 		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
 	}
