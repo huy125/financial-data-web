@@ -31,6 +31,7 @@ func (s *Server) routes() http.Handler {
 
 	mux.HandleFunc("/", s.HelloServerHandler)
 	mux.HandleFunc("/stocks", s.GetStockBySymbolHandler)
+	mux.HandleFunc("/users", s.CreateUserHandler)
 
 	return mux
 }
