@@ -5,27 +5,25 @@ import (
 	"io"
 	"net/http"
 
+	model "github.com/huy125/financial-data-web/api/models"
+	repository "github.com/huy125/financial-data-web/api/repositories/in-memory"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// User represents user information
-type User struct {
-	ID	int `json:"id"`
-	Username string `json:"username"`
-	Hash string `json:"hash"`
-}
-
 // CreateUserValidator represents the required payload for user creation
 type CreateUserValidator struct {
-	Email string `json:"email"`
-	Password string `json:"password"`
+	Email		string `json:"email"`
+	Password 	string `json:"password"`
 }
 
-var users = make(map[int]User)
+type UserHandler struct {
+	Repo repository.UserRepository
+}
+
 var nextID = 1
 
 // CreateUserHandler creates a new user with hashed password
-func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -49,13 +47,13 @@ func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUser := User{
+	newUser := model.User{
 		Username: validator.Email,
 		Hash: hashedPassword,
 	}
 
-	newUser.ID = nextID;
-	users[nextID] = newUser
+	newUser.ID = nextID
+	h.Repo.Create(newUser)
 	nextID++
 
 	response, _ := json.Marshal(map[string]interface{}{

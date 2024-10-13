@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/huy125/financial-data-web/api"
+	repository "github.com/huy125/financial-data-web/api/repositories/in-memory"
 )
 
 func main() {
@@ -17,7 +18,8 @@ func main() {
 		log.Fatal("apiKey is required")
 	}
 
-	srv := api.New(apiKey)
+	userRepo := repository.NewInMemoryUserRepository()
+	srv := api.New(apiKey, userRepo)
 
 	log.Println("Starting server on port :8080")
 	err := http.ListenAndServe(":8080", srv)
