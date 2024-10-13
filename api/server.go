@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"log"
 	"net/http"
 
 	model "github.com/huy125/financial-data-web/api/models"
@@ -27,6 +29,10 @@ func New(apiKey string, store InMemoryStore) *Server {
 	}
 
 	s.h = s.routes()
+	s.srv = &http.Server{
+		Addr: ":8080",
+		Handler: s.h,
+	}
 
 	return s
 }
@@ -47,4 +53,13 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/users", userHandler.CreateUserHandler)
 
 	return mux
+}
+
+func (s *Server) Start() error {
+	log.Println("Starting server on port :8080")
+	return s.srv.ListenAndServe()
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
 }

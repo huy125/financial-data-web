@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/api/store"
@@ -26,4 +31,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+
+	log.Println("Server terminated")
 }
