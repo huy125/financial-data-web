@@ -61,5 +61,11 @@ func main() {
 		cancel()
 	}
 
+	log.Println("Starting server on port :8080")
+	err := http.ListenAndServe(":8080", srv)
+	if err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+
 	log.Info("Server terminated")
 }
