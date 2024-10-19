@@ -46,6 +46,19 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	response, err := json.Marshal(user)
 	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	newUser := model.User{
+		Username: validator.Email,
+		Hash: validator.Hash,
+	}
+
+	user = h.Store.Create(user)
+
+	response, err := json.Marshal(user)
+	if err != nil {
 		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
 	}
 
