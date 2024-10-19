@@ -5,19 +5,22 @@ import (
 )
 
 type InMemory struct {
-	users map[int]model.User
+	users []model.User
 }
 
 func NewInMemory() *InMemory {
 	return &InMemory{
-		users: make(map[int]model.User),
+		users: []model.User{},
 	}
 }
 
-func (s *InMemory) Create(user model.User) {
-	s.users[user.ID] = user
+func (s *InMemory) Create(user model.User) model.User {
+	user.ID = len(s.users) + 1
+	s.users = append(s.users, user)
+
+	return user
 }
 
-func (s *InMemory) List() map[int]model.User {
+func (s *InMemory) List() []model.User {
 	return s.users
 }

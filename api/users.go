@@ -6,20 +6,17 @@ import (
 	"net/http"
 
 	model "github.com/huy125/financial-data-web/api/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // CreateUserValidator represents the required payload for user creation
 type CreateUserValidator struct {
-	Email		string `json:"email"`
-	Password 	string `json:"password"`
+	Email	string `json:"email"`
+	Hash 	string `json:"hash"`
 }
 
 type UserHandler struct {
 	Store InMemoryStore
 }
-
-var nextID = 1
 
 // CreateUserHandler creates a new user with hashed password
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,24 +37,14 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	hashedPassword, err := hashPassword(validator.Password)
-	if err != nil {
-		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
-		return
-	}
-
-	newUser := model.User{
+	user := model.User{
 		Username: validator.Email,
-		Hash: hashedPassword,
+		Hash: validator.Hash,
 	}
 
-	newUser.ID = nextID
-	h.Store.Create(newUser)
-	nextID++
+	user = h.Store.Create(user)
 
-	response, err := json.Marshal(map[string]interface{}{
-		"id": newUser.ID,
-	})
+	response, err := json.Marshal(user)
 
 	if err != nil {
 		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
@@ -66,13 +53,4 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
     w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(response)
-}
-
-func hashPassword(password string) (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-
-	return string(hashedPassword), nil
 }

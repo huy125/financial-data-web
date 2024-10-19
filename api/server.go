@@ -7,7 +7,7 @@ import (
 )
 
 type InMemoryStore interface {
-	Create(user model.User)
+	Create(user model.User) model.User
 }
 
 // Server is the API server.
