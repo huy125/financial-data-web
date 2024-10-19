@@ -19,10 +19,10 @@ import (
 
 func main() {
 	var (
-		apiKey    string
-		host      string
-		port      string
-		logLevel  int
+		apiKey string
+		host string
+		port string
+		logLevel int
 		logFormat string
 	)
 
