@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	model "github.com/huy125/financial-data-web/api/models"
-	repository "github.com/huy125/financial-data-web/api/repositories/in-memory"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,7 +16,7 @@ type CreateUserValidator struct {
 }
 
 type UserHandler struct {
-	Repo repository.UserRepository
+	Store InMemoryStore
 }
 
 var nextID = 1
@@ -53,12 +52,16 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	newUser.ID = nextID
-	h.Repo.Create(newUser)
+	h.Store.Create(newUser)
 	nextID++
 
-	response, _ := json.Marshal(map[string]interface{}{
+	response, err := json.Marshal(map[string]interface{}{
 		"id": newUser.ID,
 	})
+
+	if err != nil {
+		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
+	}
 
     w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

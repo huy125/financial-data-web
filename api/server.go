@@ -3,22 +3,26 @@ package api
 import (
 	"net/http"
 
-	repository "github.com/huy125/financial-data-web/api/repositories/in-memory"
+	model "github.com/huy125/financial-data-web/api/models"
 )
+
+type InMemoryStore interface {
+	Create(user model.User)
+}
 
 // Server is the API server.
 type Server struct {
 	h 		http.Handler
 
 	apiKey 		string
-	userRepo	repository.UserRepository
+	store	InMemoryStore
 }
 
 // New creates a new API server.
-func New(apiKey string, userRepo repository.UserRepository) *Server {
+func New(apiKey string, store InMemoryStore) *Server {
 	s := &Server{
 		apiKey: 	apiKey,
-		userRepo: 	userRepo,
+		store: 	store,
 	}
 
 	s.h = s.routes()
@@ -38,7 +42,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/", s.HelloServerHandler)
 	mux.HandleFunc("/stocks", s.GetStockBySymbolHandler)
 
-	userHandler := &UserHandler{Repo: s.userRepo}
+	userHandler := &UserHandler{Store: s.store}
 	mux.HandleFunc("/users", userHandler.CreateUserHandler)
 
 	return mux
