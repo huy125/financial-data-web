@@ -47,6 +47,7 @@ func main() {
 
 	addr := host + ":" + strconv.Itoa(port)
 	store := store.NewInMemory()
+
 	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
 		Addr: addr,
@@ -60,13 +61,6 @@ func main() {
 	if err := server.Run(ctx); err != nil && err != http.ErrServerClosed {
 		log.Error("Could not start server")
 		cancel()
-	}
-	srv := api.New(apiKey, store)
-
-	log.Println("Starting server on port :8080")
-	err := http.ListenAndServe(":8080", srv)
-	if err != nil {
-		log.Fatal("Failed to start server:", err)
 	}
 
 	log.Info("Server terminated")
