@@ -45,7 +45,6 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	user = h.Store.Create(user)
 
 	response, err := json.Marshal(user)
-
 	if err != nil {
 		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
 	}
