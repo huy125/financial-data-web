@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -19,24 +19,22 @@ import (
 
 func main() {
 	var (
-		apiKey string
-		host string
-		port int
-		env string
+		apiKey    string
+		host      string
+		port      string
+		logLevel  int
+		logFormat string
 	)
 
 	flag.StringVar(&apiKey, "apiKey", "", "Alpha Vantage API Key, required for stocks endpoints")
 	flag.StringVar(&host, "host", "localhost", "Server host, the default value is localhost")
-	flag.IntVar(&port, "port", 8080, "Listen port for server, the default value is 8080")
-	flag.StringVar(&env, "env", "dev", "Environment where the server runs on, the default value is development")
+	flag.StringVar(&port, "port", "8080", "Listen port for server, the default value is 8080")
+	flag.IntVar(&logLevel, "log.level", int(logger.Debug), "Log level (debug = 5, info = 4, error = 2)")
+	flag.StringVar(&logFormat, "log.format", "json", "Log format (json, text)")
+
 	flag.Parse()
 
-	minLvl := logger.Debug
-	if env == "production" {
-		minLvl = logger.Info
-	}
-
-	log := logger.New(os.Stdout, logger.JSONFormat(), minLvl)
+	log := logger.New(os.Stdout, logger.JSONFormat(), logger.Level(logLevel))
 	cancel := log.WithTimestamp()
 	defer cancel()
 
@@ -45,15 +43,15 @@ func main() {
 		log.Error("apiKey is required")
 	}
 
-	addr := host + ":" + strconv.Itoa(port)
+	addr := net.JoinHostPort(host, port)
 	store := store.NewInMemory()
 
 	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
-		Addr: addr,
+		Addr:    addr,
 		Handler: h,
-		Log: log,
-		Stats: stats,
+		Log:     log,
+		Stats:   stats,
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
