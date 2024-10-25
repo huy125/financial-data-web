@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
+	"github.com/hamba/cmd/v2"
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
 	"github.com/hamba/pkg/v2/http/server"
@@ -21,37 +21,35 @@ import (
 )
 
 func main() {
-	app := &cli.App{
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "apiKey",
-				Usage:    "AlphaVantage API Key, required for stocks endpoints",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "host",
-				Usage: "Server host, default is localhost",
-				Value: "localhost",
-			},
-			&cli.StringFlag{
-				Name:  "port",
-				Usage: "Listen port for server, default is 8080",
-				Value: "8080",
-			},
-			&cli.StringSliceFlag{
-				Name: "log.ctx",
-				Usage: "Log context key-value format (e.g., key1=value1,key2=value2)",
-			},
+	var flags = cmd.Flags{
+		&cli.StringFlag{
+			Name:     "apiKey",
+			Usage:    "AlphaVantage API Key, required for stocks endpoints",
+			Required: true,
 		},
-		Action: runServer,
-	}
+		&cli.StringFlag{
+			Name:  "host",
+			Usage: "Server host, default is localhost",
+			Value: "localhost",
+		},
+		&cli.StringFlag{
+			Name:  "port",
+			Usage: "Listen port for server, default is 8080",
+			Value: "8080",
+		},
+	}.Merge(cmd.MonitoringFlags)
+
+	app := cli.NewApp()
+	app.Name = "financial-server"
+	app.Flags = flags
+	app.Action = runServer
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	// Run CLI app
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		fmt.Println(err)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 	}
 }
 
@@ -59,20 +57,17 @@ func runServer(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(c.Context)
 	defer cancel()
 
-	lctx := convertToLoggerFields(c.StringSlice("log.ctx"))
+	// lctx := convertToLoggerFields(c.StringSlice("log.ctx"))
 
 	obsrv, err := observe.NewFromCLI(c, "financial-rest-server", &observe.Options{
 		LogTimestamps: true,
 		LogTimeFormat: logger.TimeFormatISO8601,
 		StatsRuntime:  true,
 		TracingAttrs:  []attribute.KeyValue{semconv.ServiceVersionKey.String("1.0.0")},
-		LogCtx: lctx,
 	})
-
 	if err != nil {
 		return err
 	}
-
 	defer obsrv.Close()
 
 	apiKey := c.String("apiKey")
@@ -103,26 +98,4 @@ func runServer(c *cli.Context) error {
 	obsrv.Log.Info("Server terminated")
 
 	return nil
-}
-
-func convertToLoggerFields(strs []string) []logger.Field {
-    var logFields []logger.Field
-
-    for _, str := range strs {
-        parts := strings.SplitN(str, "=", 2)
-        if len(parts) == 2 {
-            key := parts[0]
-            value := parts[1]
-
-            logFields = append(logFields, customStringField(key, value))
-        }
-    }
-
-    return logFields
-}
-
-func customStringField(key, value string) logger.Field {
-    return func(e *logger.Event) {
-        e.AppendString(key, value)  // This adds a string key-value pair to the event
-    }
 }
