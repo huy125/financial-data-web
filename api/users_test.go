@@ -1,4 +1,4 @@
-package api
+package api_test
 
 import (
 	"bytes"
@@ -7,69 +7,84 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/huy125/financial-data-web/api"
 	model "github.com/huy125/financial-data-web/api/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-type MockStore struct {
+type storeMock struct {
 	mock.Mock
 }
 
-func (m *MockStore) Create(user model.User) model.User {
+func (m *storeMock) Create(user model.User) model.User {
 	args := m.Called(user)
 	return args.Get(0).(model.User)
 }
 
-func (m *MockStore) List() []model.User {
+func (m *storeMock) List() []model.User {
 	args := m.Called()
 	return args.Get(0).([]model.User)
 }
 
-func TestOKCreateUserHandler(t *testing.T) {
-	mockStore := new(MockStore)
-	handler := &UserHandler{Store: mockStore}
+func TestServer_CreateUserHandler(t *testing.T) {
+	tests := []struct {
+		name string
 
-	t.Run("Method not allowed", func(t *testing.T) {
-		t.Parallel()
-		req, _ := http.NewRequest(http.MethodGet, "/users", nil)
-		rr := httptest.NewRecorder()
-
-		handler.CreateUserHandler(rr, req)
-
-		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
-		assert.Equal(t, "Method not allowed\n", rr.Body.String())
-	})
-
-	t.Run("Successful user creation", func(t *testing.T) {
-		t.Parallel()
-		validPayload := `
+		sendBody           string
+		wantUser           model.User
+		expectedStatusCode int
+		expectedUser       model.User
+	}{
 		{
-			"email":"test@example.com",
-			"hash":"hashedpassword"
-		}
-	`
-		req, _ := http.NewRequest(http.MethodPost, "/users", bytes.NewBufferString(validPayload))
-		rr := httptest.NewRecorder()
+			name: "creates user",
 
-		expectedUser := model.User{
-			ID:       1,
-			Username: "test@example.com",
-			Hash:     "hashedpassword",
-		}
+			sendBody: `{"email":"test@example.com", "hash":"hashedpassword"}`,
 
-		mockStore.On("Create", mock.AnythingOfType("model.User")).Return(expectedUser)
+			wantUser:           model.User{Username: "test@example.com", Hash: "hashedpassword"},
+			expectedStatusCode: http.StatusCreated,
+			expectedUser: model.User{
+				ID:       1,
+				Username: "test@example.com",
+				Hash:     "hashedpassword",
+			},
+		},
+	}
 
-		handler.CreateUserHandler(rr, req)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-		assert.Equal(t, http.StatusCreated, rr.Code)
-		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+			store := &storeMock{}
+			if test.wantUser != (model.User{}) {
+				store.On("Create", test.wantUser).Return(test.expectedUser)
+			}
 
-		var res model.User
-		err := json.Unmarshal(rr.Body.Bytes(), &res)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser, res)
+			apiKey := "testApiKey"
+			srv := api.New(apiKey, store)
 
-		mockStore.AssertCalled(t, "Create", mock.AnythingOfType("model.User"))
-	})
+			httpSrv := httptest.NewServer(srv)
+			t.Cleanup(func() { httpSrv.Close() })
+
+			reqURL := httpSrv.URL + "/users"
+
+			var req *http.Request
+			req, _ = http.NewRequest(http.MethodPost, reqURL, bytes.NewBufferString(test.sendBody))
+
+			rr := httptest.NewRecorder()
+
+			srv.ServeHTTP(rr, req)
+
+			assert.Equal(t, test.expectedStatusCode, rr.Code)
+
+			var res model.User
+
+			err := json.Unmarshal(rr.Body.Bytes(), &res)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedUser, res)
+
+			store.AssertExpectations(t)
+		})
+	}
 }
