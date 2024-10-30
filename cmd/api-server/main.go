@@ -2,64 +2,100 @@ package main
 
 import (
 	"context"
-	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/hamba/cmd/v2"
+	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
 	"github.com/hamba/pkg/v2/http/server"
-	"github.com/hamba/statter/v2"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/api/store"
+	"github.com/urfave/cli/v2"
+	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 func main() {
-	var (
-		apiKey    string
-		host      string
-		port      string
-		logLevel  int
-		logFormat string
-	)
+	var flags = cmd.Flags{
+		&cli.StringFlag{
+			Name:     "apiKey",
+			Usage:    "AlphaVantage API Key, required for stocks endpoints",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:  "host",
+			Usage: "Server host, default is localhost",
+			Value: "localhost",
+		},
+		&cli.StringFlag{
+			Name:  "port",
+			Usage: "Listen port for server, default is 8080",
+			Value: "8080",
+		},
+	}.Merge(cmd.MonitoringFlags)
 
-	flag.StringVar(&apiKey, "apiKey", "", "Alpha Vantage API Key, required for stocks endpoints")
-	flag.StringVar(&host, "host", "localhost", "Server host, the default value is localhost")
-	flag.StringVar(&port, "port", "8080", "Listen port for server, the default value is 8080")
-	flag.IntVar(&logLevel, "log.level", int(logger.Debug), "Log level (debug = 5, info = 4, error = 2)")
-	flag.StringVar(&logFormat, "log.format", "json", "Log format (json, text)")
+	app := cli.NewApp()
+	app.Name = "financial-server"
+	app.Flags = flags
+	app.Action = runServer
 
-	flag.Parse()
-
-	log := logger.New(os.Stdout, logger.JSONFormat(), logger.Level(logLevel))
-	cancel := log.WithTimestamp()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	stats := statter.New(statter.DiscardReporter, 10*time.Second)
+	// Run CLI app
+	if err := app.RunContext(ctx, os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+	}
+}
+
+func runServer(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(c.Context)
+	defer cancel()
+
+	// lctx := convertToLoggerFields(c.StringSlice("log.ctx"))
+
+	obsrv, err := observe.NewFromCLI(c, "financial-rest-server", &observe.Options{
+		LogTimestamps: true,
+		LogTimeFormat: logger.TimeFormatISO8601,
+		StatsRuntime:  true,
+		TracingAttrs:  []attribute.KeyValue{semconv.ServiceVersionKey.String("1.0.0")},
+	})
+	if err != nil {
+		return err
+	}
+	defer obsrv.Close()
+
+	apiKey := c.String("apiKey")
+	host := c.String("host")
+	port := c.String("port")
+
 	if apiKey == "" {
-		log.Error("apiKey is required")
+		obsrv.Log.Error("apiKey is required")
+		return nil
 	}
 
 	addr := net.JoinHostPort(host, port)
 	store := store.NewInMemory()
-
 	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
-		Log:     log,
-		Stats:   stats,
+		Log:     obsrv.Log,
+		Stats:   obsrv.Stats,
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
 	if err := server.Run(ctx); err != nil && err != http.ErrServerClosed {
-		log.Error("Could not start server")
+		obsrv.Log.Error("Could not start server")
 		cancel()
+		return err
 	}
 
-	log.Info("Server terminated")
+	obsrv.Log.Info("Server terminated")
+
+	return nil
 }
