@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
 type UserStore interface {

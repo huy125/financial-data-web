@@ -9,6 +9,7 @@ import (
 	"net/mail"
 
 	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
 // CreateUserValidator represents the required payload for user creation
