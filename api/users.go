@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"regexp"
 
 	model "github.com/huy125/financial-data-web/api/models"
 	"github.com/huy125/financial-data-web/api/store"
@@ -44,6 +46,11 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if err := validator.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	user := model.User{
 		Username: validator.Email,
 		Hash:     validator.Hash,
@@ -65,4 +72,27 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(response)
+}
+
+// Validate checks if the CreateUserValidator fields are valid
+func (v *CreateUserValidator) Validate() error {
+	if v.Email == "" {
+		return errors.New("email is required")
+	}
+
+	if !isValidEmail(v.Email) {
+		return errors.New("email is invalid")
+	}
+
+	if v.Hash == "" {
+		return errors.New("password hash is required")
+	}
+
+	return nil
+}
+
+func isValidEmail(email string) bool {
+	const emailRegex = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	re := regexp.MustCompile(emailRegex)
+	return re.MatchString(email)
 }
