@@ -3,27 +3,22 @@ package api
 import (
 	"net/http"
 
-	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
-
-type InMemoryStore interface {
-	Create(user model.User) model.User
-	List() []model.User
-}
 
 // Server is the API server.
 type Server struct {
-	h 		http.Handler
+	h http.Handler
 
-	apiKey 		string
-	store	InMemoryStore
+	apiKey string
+	store  store.Store
 }
 
 // New creates a new API server.
-func New(apiKey string, store InMemoryStore) *Server {
+func New(apiKey string, store store.Store) *Server {
 	s := &Server{
-		apiKey: 	apiKey,
-		store: 	store,
+		apiKey: apiKey,
+		store:  store,
 	}
 
 	s.h = s.routes()

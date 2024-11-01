@@ -37,6 +37,10 @@ func main() {
 			Usage: "Listen port for server, default is 8080",
 			Value: "8080",
 		},
+		&cli.StringFlag{
+			Name:  "dsn",
+			Usage: "Data source name",
+		},
 	}.Merge(cmd.MonitoringFlags)
 
 	app := cli.NewApp()
@@ -73,15 +77,28 @@ func runServer(c *cli.Context) error {
 	apiKey := c.String("apiKey")
 	host := c.String("host")
 	port := c.String("port")
+	dsn := c.String("dsn")
 
 	if apiKey == "" {
 		obsrv.Log.Error("apiKey is required")
 		return nil
 	}
 
+	var st store.Store
+	if dsn == "" {
+		st, err = store.New(&store.InMemory{})
+		if err != nil {
+			obsrv.Log.Error("Could not set up in memory store")
+		}
+	} else {
+		st, err = store.New(&store.Postgres{}, store.WithDSN(dsn))
+		if err != nil {
+			obsrv.Log.Error(fmt.Sprintf("Could not set up prostgres stor : %v", err))
+		}
+	}
+
 	addr := net.JoinHostPort(host, port)
-	store := store.NewInMemory()
-	h := api.New(apiKey, store)
+	h := api.New(apiKey, st)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
