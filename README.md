@@ -26,11 +26,7 @@ Create a `.env` file in the root of the project directory and add the configurat
 
 ```plaintext
 ALPHA_VANTAGE_API_KEY = your_api_key
-DB_USER = your_database_user
-DB_PASSWORD = your_database-password
-DB_NAME = your_database_name
-DB_PORT = your_database_port
-DB_HOST = your_database_host
+DATA_SOURCE_NAME = postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable
 ```
 
 ### 3. Build and Run the Application
