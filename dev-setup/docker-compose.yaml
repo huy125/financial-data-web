@@ -2,7 +2,11 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:17
+    build: ./database/
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
@@ -12,8 +16,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: ./dev-setup/api/Dockerfile
       target: dev
       args:
         ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
