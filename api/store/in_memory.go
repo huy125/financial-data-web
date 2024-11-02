@@ -10,12 +10,6 @@ type InMemory struct {
 	users []model.User
 }
 
-func NewInMemory() *InMemory {
-	return &InMemory{
-		users: []model.User{},
-	}
-}
-
 func (s *InMemory) Create(ctx context.Context, user model.User) error {
 	user.ID = len(s.users) + 1
 	s.users = append(s.users, user)
