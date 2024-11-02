@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   db:
+    container_name: financial-data-db
     build: ./database/
     environment:
       - POSTGRES_USER=${DB_USER}
@@ -15,6 +16,7 @@ services:
       - internal_network
 
   api:
+    container_name: financial-data-api-server
     build:
       context: ../
       dockerfile: ./dev-setup/api/Dockerfile
