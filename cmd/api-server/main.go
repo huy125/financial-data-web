@@ -84,17 +84,10 @@ func runServer(c *cli.Context) error {
 		return nil
 	}
 
-	var st store.Store
-	if dsn == "" {
-		st, err = store.New(&store.InMemory{})
-		if err != nil {
-			obsrv.Log.Error("Could not set up in memory store")
-		}
-	} else {
-		st, err = store.New(&store.Postgres{}, store.WithDSN(dsn))
-		if err != nil {
-			obsrv.Log.Error(fmt.Sprintf("Could not set up prostgres stor : %v", err))
-		}
+	st, err := store.New(store.WithDSN(dsn))
+	if (err != nil) {
+		obsrv.Log.Error("Could not set up in memory store")
+		return err
 	}
 
 	addr := net.JoinHostPort(host, port)

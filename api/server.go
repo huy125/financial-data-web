@@ -1,21 +1,27 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/huy125/financial-data-web/api/store"
+	model "github.com/huy125/financial-data-web/api/models"
 )
+
+type UserStore interface {
+	Create(ctx context.Context, user model.User) error
+	List(ctx context.Context, limit, offset int) ([]model.User, error)
+}
 
 // Server is the API server.
 type Server struct {
 	h http.Handler
 
 	apiKey string
-	store  store.Store
+	store  UserStore
 }
 
 // New creates a new API server.
-func New(apiKey string, store store.Store) *Server {
+func New(apiKey string, store UserStore) *Server {
 	s := &Server{
 		apiKey: apiKey,
 		store:  store,

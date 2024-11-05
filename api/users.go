@@ -6,10 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"regexp"
+	"net/mail"
 
 	model "github.com/huy125/financial-data-web/api/models"
-	"github.com/huy125/financial-data-web/api/store"
 )
 
 // CreateUserValidator represents the required payload for user creation
@@ -19,7 +18,7 @@ type CreateUserValidator struct {
 }
 
 type UserHandler struct {
-	Store store.Store
+	Store UserStore
 }
 
 // CreateUserHandler creates a new user with hashed password
@@ -92,7 +91,7 @@ func (v *CreateUserValidator) Validate() error {
 }
 
 func isValidEmail(email string) bool {
-	const emailRegex = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	re := regexp.MustCompile(emailRegex)
-	return re.MatchString(email)
+	_, err := mail.ParseAddress(email)
+
+	return err == nil
 }
