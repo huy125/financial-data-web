@@ -53,49 +53,6 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 		}, nil
 }
 
-type Option func(*options)
-
-type options struct {
-	dsn string
-}
-
-func WithDSN(dsn string) Option {
-	return func(opts *options) {
-		opts.dsn = dsn
-	}
-}
-
-func NewPostgres(opts ...Option) (*Postgres, error) {
-	c := &options{}
-	for _, opt := range opts {
-		opt(c)
-	}
-
-	config, err := pgxpool.ParseConfig(c.dsn)
-		if err != nil {
-			return nil, fmt.Errorf("parsing dsn: %w", err)
-		}
-
-		config.MaxConns = 25
-		config.MinConns = 5
-		config.MaxConnLifetime = time.Minute * 5
-		config.MaxConnIdleTime = time.Minute * 1
-
-		pool, err := pgxpool.NewWithConfig(context.Background(), config)
-		if err != nil {
-			return nil, fmt.Errorf("configuring pool connection: %w", err)
-		}
-
-		err = pool.Ping(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("ping connection: %w", err)
-		}
-
-		return &Postgres{
-			pool: pool,
-		}, nil
-}
-
 func (p *Postgres) Create(ctx context.Context, user model.User) error {
 	sql := "INSERT INTO users (username, hash) VALUES ($1, $2)"
 	_, err := p.pool.Exec(ctx, sql, user.Username, user.Hash)
