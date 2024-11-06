@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     container_name: financial-data-db
-    build: ./database/
+    image: postgres:17
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
