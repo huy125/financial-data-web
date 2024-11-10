@@ -13,25 +13,21 @@ type Postgres struct {
 	pool *pgxpool.Pool
 }
 
-type Option func(*options)
-
-type options struct {
-	dsn string
-}
+type Option func(*Postgres)
 
 func WithDSN(dsn string) Option {
-	return func(opts *options) {
-		opts.dsn = dsn
+	return func(p *Postgres) {
+		p.dsn = dsn
 	}
 }
 
 func NewPostgres(opts ...Option) (*Postgres, error) {
-	c := &options{}
+	p := Postgres{}
 	for _, opt := range opts {
-		opt(c)
+		opt(&p)
 	}
 
-	config, err := pgxpool.ParseConfig(c.dsn)
+		config, err := pgxpool.ParseConfig(p.dsn)
 		if err != nil {
 			return nil, fmt.Errorf("parsing dsn: %w", err)
 		}
