@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hamba/cmd/v2"
@@ -84,14 +86,14 @@ func runServer(c *cli.Context) error {
 		return nil
 	}
 
-	st, err := store.New(store.WithDSN(dsn))
+	store, err := newStore(dsn)
 	if (err != nil) {
-		obsrv.Log.Error("Could not set up in memory store")
+		obsrv.Log.Error("Could not set up store")
 		return err
 	}
 
 	addr := net.JoinHostPort(host, port)
-	h := api.New(apiKey, st)
+	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
@@ -108,4 +110,15 @@ func runServer(c *cli.Context) error {
 	obsrv.Log.Info("Server terminated")
 
 	return nil
+}
+
+func newStore(dsn string) (api.UserStore, error) {
+	switch {
+	case dsn == "":
+		return store.NewInMemory()
+	case strings.HasPrefix(dsn, "postgres"):
+		return store.NewPostgres(store.WithDSN(dsn))
+	default:
+		return nil, errors.New("unsupported store")
+	}
 }
