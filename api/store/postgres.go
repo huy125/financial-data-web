@@ -11,6 +11,7 @@ import (
 
 type Postgres struct {
 	pool *pgxpool.Pool
+	dsn string
 }
 
 type Option func(*Postgres)
