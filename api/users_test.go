@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,14 +19,24 @@ type storeMock struct {
 	mock.Mock
 }
 
-func (m *storeMock) Create(user model.User) model.User {
-	args := m.Called(user)
-	return args.Get(0).(model.User)
+func (m *storeMock) Create(ctx context.Context, user model.User) error {
+	m.Called(user)
+	return nil
 }
 
-func (m *storeMock) List() []model.User {
-	args := m.Called()
-	return args.Get(0).([]model.User)
+func (m *storeMock) List(ctx context.Context, limit, offset int) ([]model.User, error) {
+	return []model.User{
+		{
+			ID:       1,
+			Username: "test@xyz.com",
+			Hash:     "hashedpassword1",
+		},
+		{
+			ID:       2,
+			Username: "example@abc.com",
+			Hash:     "hashedpassword2",
+		},
+	}, nil
 }
 
 func TestServer_CreateUserHandler(t *testing.T) {
@@ -35,20 +46,16 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		sendBody           string
 		wantUser           model.User
 		expectedStatusCode int
-		expectedUser       model.User
+		expectedResponse      any
 	}{
 		{
-			name: "creates user",
+			name: "creates user successfully",
 
 			sendBody: `{"email":"test@example.com", "hash":"hashedpassword"}`,
 
 			wantUser:           model.User{Username: "test@example.com", Hash: "hashedpassword"},
 			expectedStatusCode: http.StatusCreated,
-			expectedUser: model.User{
-				ID:       1,
-				Username: "test@example.com",
-				Hash:     "hashedpassword",
-			},
+			expectedResponse: "User created successfully",
 		},
 	}
 
@@ -58,7 +65,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			store := &storeMock{}
 			if test.wantUser != (model.User{}) {
-				store.On("Create", test.wantUser).Return(test.expectedUser)
+				store.On("Create", test.wantUser).Return(nil)
 			}
 
 			apiKey := "testApiKey"
@@ -78,11 +85,10 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			assert.Equal(t, test.expectedStatusCode, rr.Code)
 
-			var res model.User
-
+			var res string
 			err := json.Unmarshal(rr.Body.Bytes(), &res)
 			require.NoError(t, err)
-			assert.Equal(t, test.expectedUser, res)
+			assert.Equal(t, test.expectedResponse, res)
 
 			store.AssertExpectations(t)
 		})

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/hamba/cmd/v2"
@@ -36,6 +38,10 @@ func main() {
 			Name:  "port",
 			Usage: "Listen port for server, default is 8080",
 			Value: "8080",
+		},
+		&cli.StringFlag{
+			Name:  "dsn",
+			Usage: "Data source name",
 		},
 	}.Merge(cmd.MonitoringFlags)
 
@@ -73,14 +79,20 @@ func runServer(c *cli.Context) error {
 	apiKey := c.String("apiKey")
 	host := c.String("host")
 	port := c.String("port")
+	dsn := c.String("dsn")
 
 	if apiKey == "" {
 		obsrv.Log.Error("apiKey is required")
 		return nil
 	}
 
+	store, err := newStore(dsn)
+	if (err != nil) {
+		obsrv.Log.Error("Could not set up store")
+		return err
+	}
+
 	addr := net.JoinHostPort(host, port)
-	store := store.NewInMemory()
 	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
@@ -98,4 +110,15 @@ func runServer(c *cli.Context) error {
 	obsrv.Log.Info("Server terminated")
 
 	return nil
+}
+
+func newStore(dsn string) (api.UserStore, error) {
+	switch {
+	case dsn == "":
+		return store.NewInMemory()
+	case strings.HasPrefix(dsn, "postgres"):
+		return store.NewPostgres(store.WithDSN(dsn))
+	default:
+		return nil, errors.New("unsupported store")
+	}
 }

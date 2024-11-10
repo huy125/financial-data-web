@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   db:
+    container_name: financial-data-db
     image: postgres:17
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
@@ -11,9 +16,10 @@ services:
       - internal_network
 
   api:
+    container_name: financial-data-api-server
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: ./dev-setup/api/Dockerfile
       target: dev
       args:
         ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
