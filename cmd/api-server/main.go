@@ -87,7 +87,7 @@ func runServer(c *cli.Context) error {
 	}
 
 	store, err := newStore(dsn)
-	if (err != nil) {
+	if err != nil {
 		obsrv.Log.Error("Could not set up store")
 		return err
 	}

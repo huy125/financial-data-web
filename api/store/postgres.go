@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	model "github.com/huy125/financial-data-web/api/models"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Postgres struct {
 	pool *pgxpool.Pool
-	dsn string
+	dsn  string
 }
 
 type Option func(*Postgres)
@@ -28,29 +29,29 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 		opt(&p)
 	}
 
-		config, err := pgxpool.ParseConfig(p.dsn)
-		if err != nil {
-			return nil, fmt.Errorf("parsing dsn: %w", err)
-		}
+	config, err := pgxpool.ParseConfig(p.dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parsing dsn: %w", err)
+	}
 
-		config.MaxConns = 25
-		config.MinConns = 5
-		config.MaxConnLifetime = time.Minute * 5
-		config.MaxConnIdleTime = time.Minute * 1
+	config.MaxConns = 25
+	config.MinConns = 5
+	config.MaxConnLifetime = time.Minute * 5
+	config.MaxConnIdleTime = time.Minute * 1
 
-		pool, err := pgxpool.NewWithConfig(context.Background(), config)
-		if err != nil {
-			return nil, fmt.Errorf("configuring pool connection: %w", err)
-		}
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		return nil, fmt.Errorf("configuring pool connection: %w", err)
+	}
 
-		err = pool.Ping(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("ping connection: %w", err)
-		}
+	err = pool.Ping(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("ping connection: %w", err)
+	}
 
-		return &Postgres{
-			pool: pool,
-		}, nil
+	return &Postgres{
+		pool: pool,
+	}, nil
 }
 
 func (p *Postgres) Create(ctx context.Context, user model.User) error {
@@ -82,4 +83,22 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 	}
 
 	return users, nil
+}
+
+func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	sql := "SELECT id, username, hash FROM users WHERE id = $1"
+	var user model.User
+	err := p.pool.QueryRow(ctx, sql, id).Scan(&user.ID, &user.Username, &user.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (p *Postgres) Update(ctx context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
+	sql := "UPDATE users SET username = $1 WHERE id = $2"
+	_, err := p.pool.Exec(ctx, sql, userUpdate.Username, id)
+
+	return err
 }
