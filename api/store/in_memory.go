@@ -58,7 +58,7 @@ func (s *InMemory) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 		}
 	}
 
-	return nil, errors.New("user not found")
+	return nil, ErrNotFound
 }
 
 func (s *InMemory) Update(ctx context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
@@ -73,5 +73,5 @@ func (s *InMemory) Update(ctx context.Context, id uuid.UUID, userUpdate model.Us
 		}
 	}
 
-	return errors.New("user not found")
+	return ErrNotFound
 }

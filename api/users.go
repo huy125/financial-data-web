@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
 // CreateUserValidator represents the required payload for user creation
@@ -120,13 +121,14 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	existUser, err := h.store.Find(context.Background(), userId)
 	if existUser == nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		h.handleStoreError(w, err)
 		return
 	}
 
 	err = h.store.Update(context.Background(), userId, userUpdate)
 	if err != nil {
-		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		h.handleStoreError(w, err)
+		return
 	}
 
 	response, err := json.Marshal("User updated successfully")
@@ -137,4 +139,15 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(response)
+}
+
+func (h *UserHandler) handleStoreError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	default:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
