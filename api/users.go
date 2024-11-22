@@ -19,16 +19,11 @@ type CreateUserValidator struct {
 }
 
 type UserHandler struct {
-	Store UserStore
+	store UserStore
 }
 
 // CreateUserHandler creates a new user with hashed password
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	if h.Store == nil {
-		http.Error(w, "Database connection is uninitialized", http.StatusInternalServerError)
-		return
-	}
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -56,7 +51,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		Hash:     validator.Hash,
 	}
 
-	err = h.Store.Create(context.Background(), user)
+	err = h.store.Create(context.Background(), user)
 
 	if err != nil {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
@@ -99,16 +94,6 @@ func isValidEmail(email string) bool {
 
 // UpdateUserHandler updates the existing user
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
-	if h.Store == nil {
-		http.Error(w, "Database connection is uninitialized", http.StatusInternalServerError)
-		return
-	}
-
-	if r.Method != http.MethodPatch {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "ID is required", http.StatusBadRequest)
@@ -133,17 +118,13 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	existUser, err := h.Store.Find(context.Background(), userId)
-	if err != nil {
-		http.Error(w, "Error when finding users", http.StatusInternalServerError)
-		return
-	}
+	existUser, err := h.store.Find(context.Background(), userId)
 	if existUser == nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	err = h.Store.Update(context.Background(), userId, userUpdate)
+	err = h.store.Update(context.Background(), userId, userUpdate)
 	if err != nil {
 		http.Error(w, "Failed to update user", http.StatusInternalServerError)
 	}
@@ -155,6 +136,5 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	w.Write(response)
 }

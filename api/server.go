@@ -47,7 +47,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/", s.HelloServerHandler)
 	mux.HandleFunc("/stocks", s.GetStockBySymbolHandler)
 
-	userHandler := &UserHandler{Store: s.store}
+	userHandler := &UserHandler{store: s.store}
 	mux.HandleFunc("/users", userHandler.CreateUserHandler)
 	mux.HandleFunc("/users/{id}", userHandler.UpdateUserHandler)
 
