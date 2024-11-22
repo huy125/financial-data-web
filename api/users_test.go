@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,18 +21,18 @@ type storeMock struct {
 	mock.Mock
 }
 
-func (m *storeMock) Create(ctx context.Context, user model.User) error {
+func (m *storeMock) Create(_ context.Context, user model.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
 
-func (m *storeMock) List(ctx context.Context, limit, offset int) ([]model.User, error) {
-	args := m.Called(ctx, limit, offset)
+func (m *storeMock) List(_ context.Context, limit, offset int) ([]model.User, error) {
+	args := m.Called(limit, offset)
 	return args.Get(0).([]model.User), args.Error(1)
 }
 
-func (m *storeMock) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
-	args := m.Called(ctx, id)
+func (m *storeMock) Find(_ context.Context, id uuid.UUID) (*model.User, error) {
+	args := m.Called(id)
 	if user, ok := args.Get(0).(*model.User); ok {
 		return user, args.Error(1)
 	}
@@ -39,8 +40,8 @@ func (m *storeMock) Find(ctx context.Context, id uuid.UUID) (*model.User, error)
 	return nil, args.Error(1)
 }
 
-func (m *storeMock) Update(ctx context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
-	args := m.Called(ctx, id, userUpdate)
+func (m *storeMock) Update(_ context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
+	args := m.Called(id, userUpdate)
 	return args.Error(0)
 }
 
@@ -109,11 +110,11 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 		sendBody string
 
 		existUser      *model.User
-		updateUser     model.UserUpdate
+		wantUser     model.UserUpdate
 		shouldMockFind bool
 
 		expectedStatusCode int
-		expectedResponse   any
+		expectedResponse   []byte
 	}{
 		{
 			name:     "updates user successfully",
@@ -121,11 +122,11 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			sendBody: `{"username":"test1@example.com"}`,
 
 			existUser:      &model.User{ID: id, Username: "test@example.com", Hash: "hashpassword"},
-			updateUser:     model.UserUpdate{Username: "test1@example.com"},
+			wantUser:     model.UserUpdate{Username: "test1@example.com"},
 			shouldMockFind: true,
 
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   "User updated successfully",
+			expectedResponse:   []byte(`{"message":"User updated successfully"}`),
 		},
 		{
 			name:     "handles user not found",
@@ -133,7 +134,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			sendBody: `{"username":"test1@example.com"}`,
 
 			existUser:      nil,
-			updateUser:     model.UserUpdate{},
+			wantUser:     model.UserUpdate{},
 			shouldMockFind: true,
 
 			expectedStatusCode: http.StatusNotFound,
@@ -144,7 +145,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			sendBody: `{"username":"test1@example.com"}`,
 
 			existUser:      nil,
-			updateUser:     model.UserUpdate{},
+			wantUser:     model.UserUpdate{},
 			shouldMockFind: false,
 
 			expectedStatusCode: http.StatusBadRequest,
@@ -157,11 +158,11 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			store := &storeMock{}
 			if test.shouldMockFind {
-				store.On("Find", mock.Anything, id).Return(test.existUser, nil)
+				store.On("Find", id).Return(test.existUser, nil)
 			}
 
-			if test.updateUser != (model.UserUpdate{}) {
-				store.On("Update", mock.Anything, id, test.updateUser).Return(nil)
+			if test.wantUser != (model.UserUpdate{}) {
+				store.On("Update", id, test.wantUser).Return(nil)
 			}
 
 			apiKey := "testApiKey"
@@ -172,8 +173,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			reqURL := httpSrv.URL + test.uri
 
-			var req *http.Request
-			req, _ = http.NewRequest(http.MethodPatch, reqURL, bytes.NewBufferString(test.sendBody))
+			req, err := http.NewRequest(http.MethodPatch, reqURL, bytes.NewBufferString(test.sendBody))
+			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()
 
@@ -182,10 +183,10 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			assert.Equal(t, test.expectedStatusCode, rr.Code)
 
 			if rr.Code == http.StatusOK {
-				var res string
-				err := json.Unmarshal(rr.Body.Bytes(), &res)
+				res, err := io.ReadAll(rr.Body)
 				require.NoError(t, err)
-				assert.Equal(t, test.expectedResponse, res)
+
+				assert.JSONEq(t, string(test.expectedResponse), string(res))
 			}
 
 			store.AssertExpectations(t)
