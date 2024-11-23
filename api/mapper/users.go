@@ -9,9 +9,8 @@ import (
 )
 
 // ToAPIUser converts a store user to an API user
-func ToAPIUser(u *model.User) *dto.User {
-	return &dto.User{
-		ID:        u.ID.String(),
+func ToAPIUser(u *model.User) *dto.UserDto {
+	return &dto.UserDto{
 		Email:     u.Email,
 		Firstname: u.Firstname,
 		Lastname:  u.Lastname,
@@ -19,7 +18,7 @@ func ToAPIUser(u *model.User) *dto.User {
 }
 
 // ToStoreUser converts an API user to a store user
-func ToStoreUser(u *dto.User) *model.User {
+func ToStoreUser(u *dto.UserDto) *model.User {
 	return &model.User{
 		ID:        uuid.New(),
 		Email:     u.Email,
