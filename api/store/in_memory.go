@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	model "github.com/huy125/financial-data-web/api/models"
+	model "github.com/huy125/financial-data-web/api/store/models"
 )
 
 type InMemory struct {
@@ -61,13 +61,15 @@ func (s *InMemory) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return nil, ErrNotFound
 }
 
-func (s *InMemory) Update(ctx context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
+func (s *InMemory) Update(ctx context.Context, user model.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, user := range s.users {
-		if user.ID == id {
-			s.users[i].Username = userUpdate.Username
+	for i, u := range s.users {
+		if u.ID == user.ID {
+			s.users[i].Email = user.Email
+			s.users[i].Firstname = user.Firstname
+			s.users[i].Lastname = user.Lastname
 
 			return nil
 		}

@@ -9,7 +9,6 @@ import (
 	"net/mail"
 
 	"github.com/google/uuid"
-	model "github.com/huy125/financial-data-web/api/models"
 	"github.com/huy125/financial-data-web/api/store"
 )
 
@@ -110,9 +109,10 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
 	}
 
-	var userUpdate model.UserUpdate
+	var userUpdate model.User
 	err = json.Unmarshal(body, &userUpdate)
 	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)

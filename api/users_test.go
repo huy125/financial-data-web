@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api"
-	model "github.com/huy125/financial-data-web/api/models"
+	model "github.com/huy125/financial-data-web/api/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

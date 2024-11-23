@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	model "github.com/huy125/financial-data-web/api/models"
+	model "github.com/huy125/financial-data-web/api/store/models"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -55,14 +55,14 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 }
 
 func (p *Postgres) Create(ctx context.Context, user model.User) error {
-	sql := "INSERT INTO users (username, hash) VALUES ($1, $2)"
-	_, err := p.pool.Exec(ctx, sql, user.Username, user.Hash)
+	sql := "INSERT INTO users (email, firstname, lastname) VALUES ($1, $2, $3)"
+	_, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname)
 
 	return err
 }
 
 func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, error) {
-	sql := "SELECT id, username, hash FROM users LIMIT $1 OFFSET $2"
+	sql := "SELECT id, email, firstname, lastname FROM users LIMIT $1 OFFSET $2"
 	rows, err := p.pool.Query(ctx, sql, limit, offset)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 	var users []model.User
 	for rows.Next() {
 		var user model.User
-		if err := rows.Scan(&user.ID, &user.Username, &user.Hash); err != nil {
+		if err := rows.Scan(&user.ID, &user.Email, &user.Firstname, &user.Lastname); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
@@ -86,9 +86,9 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 }
 
 func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
-	sql := "SELECT id, username, hash FROM users WHERE id = $1"
+	sql := "SELECT id, email, firstname, lastname FROM users WHERE id = $1"
 	var user model.User
-	err := p.pool.QueryRow(ctx, sql, id).Scan(&user.ID, &user.Username, &user.Hash)
+	err := p.pool.QueryRow(ctx, sql, id).Scan(&user.ID, &user.Email, &user.Firstname, &user.Lastname)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +96,9 @@ func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return &user, nil
 }
 
-func (p *Postgres) Update(ctx context.Context, id uuid.UUID, userUpdate model.UserUpdate) error {
-	sql := "UPDATE users SET username = $1 WHERE id = $2"
-	_, err := p.pool.Exec(ctx, sql, userUpdate.Username, id)
+func (p *Postgres) Update(ctx context.Context, user model.User) error {
+	sql := "UPDATE users SET email = $1, firstname = $2, lastname = $3  WHERE id = $4"
+	_, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.ID)
 
 	return err
 }
