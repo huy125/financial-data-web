@@ -9,10 +9,10 @@ import (
 )
 
 type UserStore interface {
-	Create(ctx context.Context, user model.User) error
+	Create(ctx context.Context, user *model.User) error
 	List(ctx context.Context, limit, offset int) ([]model.User, error)
 	Find(ctx context.Context, id uuid.UUID) (*model.User, error)
-	Update(ctx context.Context, user model.User) error
+	Update(ctx context.Context, user *model.User) error
 }
 
 // Server is the API server.

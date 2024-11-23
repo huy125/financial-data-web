@@ -6,17 +6,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/mail"
 
 	"github.com/google/uuid"
+	"github.com/huy125/financial-data-web/api/dto"
+	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/api/store"
 )
-
-// CreateUserValidator represents the required payload for user creation
-type CreateUserValidator struct {
-	Email string `json:"email"`
-	Hash  string `json:"hash"`
-}
 
 type UserHandler struct {
 	store UserStore
@@ -24,72 +19,30 @@ type UserHandler struct {
 
 // CreateUserHandler creates a new user with hashed password
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
-	}
-
-	var validator CreateUserValidator
-	err = json.Unmarshal(body, &validator)
-	if err != nil {
+	var userDto dto.UserDto
+	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	if err := validator.Validate(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := userDto.Validate(); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(err)
 		return
 	}
 
-	user := model.User{
-		Username: validator.Email,
-		Hash:     validator.Hash,
-	}
+	user := mapper.ToStoreUser(&userDto)
 
-	err = h.store.Create(context.Background(), user)
-
+	err := h.store.Create(context.Background(), user)
 	if err != nil {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
 
-	response, err := json.Marshal("User created successfully")
-	if err != nil {
-		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(response)
-}
-
-// Validate checks if the CreateUserValidator fields are valid
-func (v *CreateUserValidator) Validate() error {
-	if v.Email == "" {
-		return errors.New("email is required")
-	}
-
-	if !isValidEmail(v.Email) {
-		return errors.New("email is invalid")
-	}
-
-	if v.Hash == "" {
-		return errors.New("password hash is required")
-	}
-
-	return nil
-}
-
-func isValidEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-
-	return err == nil
+	json.NewEncoder(w).Encode(mapper.ToAPIUser(user))
 }
 
 // UpdateUserHandler updates the existing user

@@ -54,7 +54,7 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 	}, nil
 }
 
-func (p *Postgres) Create(ctx context.Context, user model.User) error {
+func (p *Postgres) Create(ctx context.Context, user *model.User) error {
 	sql := "INSERT INTO users (email, firstname, lastname) VALUES ($1, $2, $3)"
 	_, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname)
 
@@ -96,7 +96,7 @@ func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return &user, nil
 }
 
-func (p *Postgres) Update(ctx context.Context, user model.User) error {
+func (p *Postgres) Update(ctx context.Context, user *model.User) error {
 	sql := "UPDATE users SET email = $1, firstname = $2, lastname = $3  WHERE id = $4"
 	_, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.ID)
 

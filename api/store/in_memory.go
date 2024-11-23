@@ -18,12 +18,12 @@ func NewInMemory() (*InMemory, error) {
 	return &InMemory{}, nil
 }
 
-func (s *InMemory) Create(ctx context.Context, user model.User) error {
+func (s *InMemory) Create(ctx context.Context, user *model.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	user.ID = uuid.New()
-	s.users = append(s.users, user)
+	s.users = append(s.users, *user)
 
 	return nil
 }
@@ -61,7 +61,7 @@ func (s *InMemory) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return nil, ErrNotFound
 }
 
-func (s *InMemory) Update(ctx context.Context, user model.User) error {
+func (s *InMemory) Update(ctx context.Context, user *model.User) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
