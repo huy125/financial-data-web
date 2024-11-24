@@ -30,6 +30,7 @@ func ToStoreUser(u *dto.UserDto) (*model.User, error) {
 	if u.Id == "" {
 		user.Id = uuid.New()
 		user.CreatedAt = now
+		user.UpdatedAt = now
 	} else {
 		id, err := uuid.Parse(u.Id)
 		if err != nil {
