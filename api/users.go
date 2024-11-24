@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/api/store"
@@ -32,66 +31,64 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user := mapper.ToStoreUser(&userDto)
-
-	err := h.store.Create(context.Background(), user)
+	user, err := mapper.ToStoreUser(&userDto)
 	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	createdUser, err := h.store.Create(context.Background(), user)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(mapper.ToAPIUser(user))
+	json.NewEncoder(w).Encode(mapper.ToAPIUser(createdUser))
 }
 
 // UpdateUserHandler updates the existing user
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "ID is required", http.StatusBadRequest)
+		http.Error(w, "Id is required", http.StatusBadRequest)
 		return
 	}
 
-	userId, err := uuid.Parse(id)
-	if err != nil {
-		http.Error(w, "Invalid ID format", http.StatusBadRequest)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
+	var userDto dto.UserDto
+	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
-	var userUpdate model.User
-	err = json.Unmarshal(body, &userUpdate)
-	if err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	if id != userDto.Id {
+		http.Error(w, "Mismatch Id between path and body", http.StatusBadRequest)
 		return
 	}
 
-	existUser, err := h.store.Find(context.Background(), userId)
-	if existUser == nil {
+	if err := userDto.Validate(); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	user, err := mapper.ToStoreUser(&userDto)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	updatedUser, err := h.store.Update(context.Background(), user)
+	if err != nil {
 		h.handleStoreError(w, err)
-		return
-	}
-
-	err = h.store.Update(context.Background(), userId, userUpdate)
-	if err != nil {
-		h.handleStoreError(w, err)
-		return
-	}
-
-	response, err := json.Marshal("User updated successfully")
-	if err != nil {
-		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
 }
 
 func (h *UserHandler) handleStoreError(w http.ResponseWriter, err error) {
