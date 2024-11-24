@@ -7,11 +7,11 @@ import (
 
 // User represents user information
 type UserDto struct {
+	Id        string `json:"id"`
 	Email     string `json:"email"`
 	Firstname string `json:"firstname"`
 	Lastname  string `json:"lastname"`
 }
-
 
 // ValidationError represents a validation error
 type ValidationError struct {
