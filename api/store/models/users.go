@@ -8,7 +8,7 @@ import (
 
 // User represents user schema in database
 type User struct {
-	ID        uuid.UUID
+	Id        uuid.UUID
 	Email     string
 	Firstname string
 	Lastname  string

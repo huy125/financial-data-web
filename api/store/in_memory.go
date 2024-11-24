@@ -18,14 +18,14 @@ func NewInMemory() (*InMemory, error) {
 	return &InMemory{}, nil
 }
 
-func (s *InMemory) Create(ctx context.Context, user *model.User) error {
+func (s *InMemory) Create(ctx context.Context, user *model.User) (*model.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	user.ID = uuid.New()
+	user.Id = uuid.New()
 	s.users = append(s.users, *user)
 
-	return nil
+	return user, nil
 }
 
 func (s *InMemory) List(ctx context.Context, limit, offset int) ([]model.User, error) {
@@ -53,7 +53,7 @@ func (s *InMemory) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	defer s.mu.Unlock()
 
 	for _, user := range s.users {
-		if user.ID == id {
+		if user.Id == id {
 			return &user, nil
 		}
 	}
@@ -61,19 +61,19 @@ func (s *InMemory) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return nil, ErrNotFound
 }
 
-func (s *InMemory) Update(ctx context.Context, user *model.User) error {
+func (s *InMemory) Update(ctx context.Context, user *model.User) (*model.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for i, u := range s.users {
-		if u.ID == user.ID {
-			s.users[i].Email = user.Email
-			s.users[i].Firstname = user.Firstname
-			s.users[i].Lastname = user.Lastname
+	for _, u := range s.users {
+		if u.Id == user.Id {
+			u.Email = user.Email
+			u.Firstname = user.Firstname
+			u.Lastname = user.Lastname
 
-			return nil
+			return &u, nil
 		}
 	}
 
-	return ErrNotFound
+	return nil, ErrNotFound
 }
