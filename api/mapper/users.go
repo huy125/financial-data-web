@@ -11,6 +11,7 @@ import (
 // ToAPIUser converts a store user to an API user
 func ToAPIUser(u *model.User) *dto.UserDto {
 	return &dto.UserDto{
+		Id:        u.Id.String(),
 		Email:     u.Email,
 		Firstname: u.Firstname,
 		Lastname:  u.Lastname,
@@ -18,13 +19,25 @@ func ToAPIUser(u *model.User) *dto.UserDto {
 }
 
 // ToStoreUser converts an API user to a store user
-func ToStoreUser(u *dto.UserDto) *model.User {
-	return &model.User{
-		ID:        uuid.New(),
+func ToStoreUser(u *dto.UserDto) (*model.User, error) {
+	now := time.Now()
+	user := &model.User{
 		Email:     u.Email,
 		Firstname: u.Firstname,
 		Lastname:  u.Lastname,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 	}
+
+	if u.Id == "" {
+		user.Id = uuid.New()
+		user.CreatedAt = now
+	} else {
+		id, err := uuid.Parse(u.Id)
+		if err != nil {
+			return nil, err
+		}
+		user.Id = id
+		user.UpdatedAt = now
+	}
+
+	return user, nil
 }
