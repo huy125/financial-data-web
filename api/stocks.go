@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -71,8 +72,19 @@ func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
 	}
 
-	url := fmt.Sprintf("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=%s&apikey=%s", symbol, s.apiKey)
-	resp, err := http.Get(url)
+	baseURL := &url.URL{
+		Scheme: "https",
+		Host:   "www.alphavantage.co",
+		Path:   "/query",
+	}
+
+	q := baseURL.Query()
+	q.Set("function", "TIME_SERIES_DAILY")
+	q.Set("symbol", symbol)
+	q.Set("apikey", s.apiKey)
+	baseURL.RawQuery = q.Encode()
+
+	resp, err := http.Get(baseURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("error while calling external api: %v", err)
 	}
