@@ -1,7 +1,7 @@
 # ===================================================================================
 # === Stage 1: Build the Go backend service =========================================
 # ===================================================================================
-FROM golang:1.23 as builder
+FROM golang:1.23 AS builder
 WORKDIR /build
 
 ARG VERSION="1.0.0"
@@ -18,7 +18,7 @@ RUN go build -o server ./cmd/api-server
 # ================================================================================================
 # === Stage 2: Get backend binary into a lightweight container ===================================
 # ================================================================================================
-FROM debian:latest as dev
+FROM debian:latest AS dev
 RUN apt-get update && apt-get install -y ca-certificates
 
 WORKDIR /app

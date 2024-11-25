@@ -4,12 +4,15 @@ import (
 	"context"
 	"net/http"
 
-	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/google/uuid"
+	model "github.com/huy125/financial-data-web/api/store/models"
 )
 
 type UserStore interface {
-	Create(ctx context.Context, user model.User) error
+	Create(ctx context.Context, user *model.User) (*model.User, error)
 	List(ctx context.Context, limit, offset int) ([]model.User, error)
+	Find(ctx context.Context, id uuid.UUID) (*model.User, error)
+	Update(ctx context.Context, user *model.User) (*model.User, error)
 }
 
 // Server is the API server.
@@ -44,8 +47,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/", s.HelloServerHandler)
 	mux.HandleFunc("/stocks", s.GetStockBySymbolHandler)
 
-	userHandler := &UserHandler{Store: s.store}
+	userHandler := &UserHandler{store: s.store}
 	mux.HandleFunc("/users", userHandler.CreateUserHandler)
+	mux.HandleFunc("/users/{id}", userHandler.UpdateUserHandler)
 
 	return mux
 }

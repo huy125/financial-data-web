@@ -4,94 +4,99 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"net/http"
-	"net/mail"
 
-	model "github.com/huy125/financial-data-web/api/models"
+	"github.com/huy125/financial-data-web/api/dto"
+	"github.com/huy125/financial-data-web/api/mapper"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
-// CreateUserValidator represents the required payload for user creation
-type CreateUserValidator struct {
-	Email string `json:"email"`
-	Hash  string `json:"hash"`
-}
-
 type UserHandler struct {
-	Store UserStore
+	store UserStore
 }
 
 // CreateUserHandler creates a new user with hashed password
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	if h.Store == nil {
-		http.Error(w, "Database connection is uninitialized", http.StatusInternalServerError)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
-	}
-
-	var validator CreateUserValidator
-	err = json.Unmarshal(body, &validator)
-	if err != nil {
+	var userDto dto.UserDto
+	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	if err := validator.Validate(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := userDto.Validate(); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(err)
 		return
 	}
 
-	user := model.User{
-		Username: validator.Email,
-		Hash:     validator.Hash,
-	}
-
-	err = h.Store.Create(context.Background(), user)
-
+	user, err := mapper.ToStoreUser(&userDto)
 	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	response, err := json.Marshal("User created successfully")
+	createdUser, err := h.store.Create(context.Background(), user)
 	if err != nil {
-		http.Error(w, "Failed to marshal to JSON", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(response)
+	json.NewEncoder(w).Encode(mapper.ToAPIUser(createdUser))
 }
 
-// Validate checks if the CreateUserValidator fields are valid
-func (v *CreateUserValidator) Validate() error {
-	if v.Email == "" {
-		return errors.New("email is required")
+// UpdateUserHandler updates the existing user
+func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Id is required", http.StatusBadRequest)
+		return
 	}
 
-	if !isValidEmail(v.Email) {
-		return errors.New("email is invalid")
+	var userDto dto.UserDto
+	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
 	}
 
-	if v.Hash == "" {
-		return errors.New("password hash is required")
+	if id != userDto.Id {
+		http.Error(w, "Mismatch Id between path and body", http.StatusBadRequest)
+		return
 	}
 
-	return nil
+	if err := userDto.Validate(); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(err)
+		return
+	}
+
+	user, err := mapper.ToStoreUser(&userDto)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	updatedUser, err := h.store.Update(context.Background(), user)
+	if err != nil {
+		h.handleStoreError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
 }
 
-func isValidEmail(email string) bool {
-	_, err := mail.ParseAddress(email)
-
-	return err == nil
+func (h *UserHandler) handleStoreError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	default:
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
