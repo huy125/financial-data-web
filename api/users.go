@@ -27,7 +27,9 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	if err := userDto.Validate(); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(err)
+		if encodeErr := json.NewEncoder(w).Encode(err); encodeErr != nil {
+			http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -45,7 +47,11 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(mapper.ToAPIUser(createdUser))
+	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(createdUser))
+	if err != nil {
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // UpdateUserHandler updates the existing user
@@ -70,7 +76,9 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	if err := userDto.Validate(); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(err)
+		if encodeErr := json.NewEncoder(w).Encode(err); encodeErr != nil {
+			http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -87,7 +95,11 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
+	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
+	if err != nil {
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *UserHandler) handleStoreError(w http.ResponseWriter, err error) {
