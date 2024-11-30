@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// User represents user schema in database
+// User represents user schema in database.
 type User struct {
-	Id        uuid.UUID
+	ID        uuid.UUID
 	Email     string
 	Firstname string
 	Lastname  string

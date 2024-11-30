@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	var flags = cmd.Flags{
+	flags := cmd.Flags{
 		&cli.StringFlag{
 			Name:     "apiKey",
 			Usage:    "AlphaVantage API Key, required for stocks endpoints",
@@ -101,7 +101,7 @@ func runServer(c *cli.Context) error {
 		Stats:   obsrv.Stats,
 	}
 
-	if err := server.Run(ctx); err != nil && err != http.ErrServerClosed {
+	if err := server.Run(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		obsrv.Log.Error("Could not start server")
 		cancel()
 		return err

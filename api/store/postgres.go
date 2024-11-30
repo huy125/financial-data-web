@@ -10,6 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const (
+	maxConnLifeTime int8 = 5 // 5 minutes
+	maxConnIdleTime int8 = 1 // 1 minute
+)
+
 type Postgres struct {
 	pool *pgxpool.Pool
 	dsn  string
@@ -36,8 +41,8 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 
 	config.MaxConns = 25
 	config.MinConns = 5
-	config.MaxConnLifetime = time.Minute * 5
-	config.MaxConnIdleTime = time.Minute * 1
+	config.MaxConnLifetime = time.Minute * time.Duration(maxConnLifeTime)
+	config.MaxConnIdleTime = time.Minute * time.Duration(maxConnIdleTime)
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
@@ -65,8 +70,7 @@ func (p *Postgres) Create(ctx context.Context, user *model.User) (*model.User, e
 		user.Email,
 		user.Firstname,
 		user.Lastname,
-	).Scan(&user.Id, &user.CreatedAt, &user.UpdatedAt)
-
+	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +89,7 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 	var users []model.User
 	for rows.Next() {
 		var user model.User
-		if err := rows.Scan(&user.Id, &user.Email, &user.Firstname, &user.Lastname); err != nil {
+		if err := rows.Scan(&user.ID, &user.Email, &user.Firstname, &user.Lastname); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
@@ -101,7 +105,14 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	sql := "SELECT id, email, firstname, lastname, created_at, updated_at FROM users WHERE id = $1"
 	var user model.User
-	err := p.pool.QueryRow(ctx, sql, id).Scan(&user.Id, &user.Email, &user.Firstname, &user.Lastname, &user.CreatedAt, &user.UpdatedAt)
+	err := p.pool.QueryRow(ctx, sql, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Firstname,
+		&user.Lastname,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +130,7 @@ func (p *Postgres) Update(ctx context.Context, user *model.User) (*model.User, e
 			WHERE id = $4
 	`
 
-	res, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.Id)
+	res, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.ID)
 	if err != nil {
 		return nil, err
 	}

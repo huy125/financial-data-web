@@ -16,7 +16,7 @@ type UserHandler struct {
 	store UserStore
 }
 
-// CreateUserHandler creates a new user with hashed password
+// CreateUserHandler creates a new user with hashed password.
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var userDto dto.UserDto
 	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
@@ -54,7 +54,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// UpdateUserHandler updates the existing user
+// UpdateUserHandler updates the existing user.
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -68,7 +68,7 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if id != userDto.Id {
+	if id != userDto.ID {
 		http.Error(w, "Mismatch Id between path and body", http.StatusBadRequest)
 		return
 	}

@@ -5,20 +5,20 @@ import (
 	"strings"
 )
 
-// User represents user information
+// User represents user information.
 type UserDto struct {
-	Id        string `json:"id"`
+	ID        string `json:"id"`
 	Email     string `json:"email"`
 	Firstname string `json:"firstname"`
 	Lastname  string `json:"lastname"`
 }
 
-// ValidationError represents a validation error
+// ValidationError represents a validation error.
 type ValidationError struct {
 	Error string `json:"error"`
 }
 
-// ValidationErrors represents a list of validation errors
+// ValidationErrors represents a list of validation errors.
 type ValidationErrors []ValidationError
 
 func (ve ValidationErrors) Error() string {

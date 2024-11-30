@@ -86,8 +86,9 @@ func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 
 	resp, err := http.Get(baseURL.String())
 	if err != nil {
-		return nil, fmt.Errorf("error while calling external api: %v", err)
+		return nil, fmt.Errorf("error while calling external api: %w", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
@@ -98,13 +99,13 @@ func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading response body: %v", err)
+		return nil, fmt.Errorf("error while reading response body: %w", err)
 	}
 
 	var data TimeSeriesDaily
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshaling JSON: %w", err)
 	}
 
 	return &data, nil

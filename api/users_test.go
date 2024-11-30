@@ -55,6 +55,8 @@ func (m *storeMock) Update(_ context.Context, user *model.User) (*model.User, er
 }
 
 func TestServer_CreateUserHandler(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 
@@ -74,7 +76,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			wantUserDto: &dto.UserDto{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel: &model.User{
-				Id:        uuid.MustParse("ab678e01-00ee-4e4c-acfc-6dc0b68fee20"),
+				ID:        uuid.MustParse("ab678e01-00ee-4e4c-acfc-6dc0b68fee20"),
 				Email:     "test@example.com",
 				Firstname: "Alice",
 				Lastname:  "Smith",
@@ -84,7 +86,14 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			returnErr: nil,
 
 			wantStatus: http.StatusCreated,
-			wantResult: []byte(`{"id": "ab678e01-00ee-4e4c-acfc-6dc0b68fee20", "email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`),
+			wantResult: []byte(`
+				{
+					"id": "ab678e01-00ee-4e4c-acfc-6dc0b68fee20",
+					"email": "test@example.com",
+					"firstname": "Alice",
+					"lastname": "Smith"
+				}`,
+			),
 		},
 		{
 			name: "handles internal server error",
@@ -152,6 +161,8 @@ func TestServer_CreateUserHandler(t *testing.T) {
 }
 
 func TestServer_UpdateUserHandler(t *testing.T) {
+	t.Parallel()
+
 	id := uuid.New()
 	tests := []struct {
 		name string
@@ -170,25 +181,32 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "updates user successfully",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto: &dto.UserDto{Id: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUserDto: &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
 			wantUserModel: &model.User{
-				Id:        id,
+				ID:        id,
 				Email:     "test@example.com",
 				Firstname: "Bob",
 				Lastname:  "Smith",
-				CreatedAt: time.Date(2024, 11, 24, 21, 58, 00, 00, time.UTC),
+				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
 				UpdatedAt: time.Now(),
 			},
 			returnErr: nil,
 
 			expectedStatusCode: http.StatusOK,
-			expectedResponse:   []byte(`{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`),
+			expectedResponse: []byte(`
+				{
+					"id": "` + id.String() + `",
+					"email": "test@example.com",
+					"firstname": "Bob",
+					"lastname": "Smith"
+				}`,
+			),
 		},
 		{
 			name:     "handles user not found error",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto:   &dto.UserDto{Id: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUserDto:   &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
 			wantUserModel: nil,
 			returnErr:     store.ErrNotFound,
 
@@ -198,7 +216,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles internal server error",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto:   &dto.UserDto{Id: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUserDto:   &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
 			wantUserModel: nil,
 			returnErr:     errors.New("internal error"),
 
@@ -223,7 +241,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			if test.wantUserDto != nil {
 				store.On("Update",
 					mock.MatchedBy(func(u *model.User) bool {
-						return u.Id.String() == test.wantUserDto.Id &&
+						return u.ID.String() == test.wantUserDto.ID &&
 							u.Email == test.wantUserDto.Email &&
 							u.Firstname == test.wantUserDto.Firstname &&
 							u.Lastname == test.wantUserDto.Lastname
