@@ -1,19 +1,36 @@
 linters:
-  enable:
-    - gofmt
-    - govet
-    - errcheck
-    - staticcheck
-    - gosimple
-    - ineffassign
-    - typecheck
-    - unused
-    - misspell
-    - gocyclo
-    - gosec
-    - revive
+  enable-all: true
+  disable:
+    - exportloopref # Deprecated
+    - varnamelen # Not relevant
+    - exhaustruct # Not relevant
+    - ireturn # Not relevant
+    - nlreturn # Not relevant
+    - contextcheck # Too strict
+    - err113 # Too strict
+    - forcetypeassert # Too strict
+    - tagliatelle # Too strict
+    - wrapcheck # Too strict
+    - wsl # Too strict
+    - noctx # Too strict
+    - prealloc # Not maintenant linter
+
 
 linters-settings:
+  depguard:
+    rules:
+      prevent_unmaintained_packages:
+        list-mode: lax
+        files:
+          - $all
+        allow:
+          - $gostd
+          - github.com/OpenPeeDeeP
+        deny:
+          - pkg: io/ioutil
+            desc: "replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil"
+          - pkg: "github.com/pkg/errors"
+            desc: Should be replaced by standard lib errors package
   gocyclo:
     min-complexity: 15
   revive:
@@ -31,6 +48,7 @@ issues:
     - path: _test\.go
       linters:
         - gosec
+        - funlen
   max-issues-per-linter: 0
   max-same-issues: 0
 
