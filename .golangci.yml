@@ -6,14 +6,11 @@ linters:
     - exhaustruct # Not relevant
     - ireturn # Not relevant
     - nlreturn # Not relevant
-    - contextcheck # Too strict
     - err113 # Too strict
     - forcetypeassert # Too strict
     - tagliatelle # Too strict
     - wrapcheck # Too strict
     - wsl # Too strict
-    - noctx # Too strict
-    - prealloc # Not maintenant linter
 
 linters-settings:
   depguard:
@@ -26,10 +23,10 @@ linters-settings:
           - $gostd
           - github.com/OpenPeeDeeP
         deny:
-          - pkg: io/ioutil
+          - pkg: "io/ioutil"
             desc: "replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil"
           - pkg: "github.com/pkg/errors"
-            desc: Should be replaced by standard lib errors package
+            desc: "should be replaced by standard lib errors package"
   gocyclo:
     min-complexity: 15
   revive:
