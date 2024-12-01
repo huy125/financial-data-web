@@ -18,7 +18,7 @@ version:
 		$(MIGRATE_IMAGE) \
 		-source file:///migrations \
 		-database $(DATA_SOURCE_NAME) version
-PHONE: version
+.PHONY: version
 
 up-schema: 
 	@echo "Upgrade database schema"
@@ -26,7 +26,7 @@ up-schema:
 		$(MIGRATE_IMAGE) \
 		-source file:///migrations \
 		-database $(DATA_SOURCE_NAME) up
-PHONE: up-schema
+.PHONY: up-schema
 
 down-schema:
 	@echo "Downgrade last migration"
@@ -45,7 +45,7 @@ force-schema:
 .PHONY: force-schema
 
 # ===================================================================================
-# === Linter ============================================================
+# === Linter ========================================================================
 # ===================================================================================
 lint:
 	@golangci-lint run
@@ -58,3 +58,7 @@ lint-verbose:
 		--issues-exit-code=1 \
 		--print-resources-usage
 .PHONY: lint-verbose
+
+sort-imports:
+	@gci write --skip-generated -s standard -s default .
+.PHONY: sort-imports
