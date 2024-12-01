@@ -63,8 +63,6 @@ func runServer(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(c.Context)
 	defer cancel()
 
-	// lctx := convertToLoggerFields(c.StringSlice("log.ctx"))
-
 	obsrv, err := observe.NewFromCLI(c, "financial-rest-server", &observe.Options{
 		LogTimestamps: true,
 		LogTimeFormat: logger.TimeFormatISO8601,

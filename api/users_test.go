@@ -140,8 +140,12 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			reqURL := httpSrv.URL + "/users"
 
-			var req *http.Request
-			req, _ = http.NewRequest(http.MethodPost, reqURL, bytes.NewBufferString(test.sendBody))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(test.sendBody))
+			require.NoError(t, err)
+
 			rr := httptest.NewRecorder()
 
 			srv.ServeHTTP(rr, req)
@@ -257,7 +261,10 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			reqURL := httpSrv.URL + "/users/" + id.String()
 
-			req, err := http.NewRequest(http.MethodPatch, reqURL, bytes.NewBufferString(test.sendBody))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, reqURL, bytes.NewBufferString(test.sendBody))
 			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()

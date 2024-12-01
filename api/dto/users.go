@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const errorMsgSize = 5
+
 // User represents user information.
 type UserDto struct {
 	ID        string `json:"id"`
@@ -22,7 +24,7 @@ type ValidationError struct {
 type ValidationErrors []ValidationError
 
 func (ve ValidationErrors) Error() string {
-	var errMsgs []string
+	errMsgs := make([]string, 0, errorMsgSize)
 
 	for _, err := range ve {
 		errMsgs = append(errMsgs, err.Error)

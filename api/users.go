@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/api/store"
 )
+
+const requestTimeout = 5
 
 type UserHandler struct {
 	store UserStore
@@ -39,7 +42,10 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	createdUser, err := h.store.Create(context.Background(), user)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
+	defer cancel()
+
+	createdUser, err := h.store.Create(ctx, user)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
@@ -88,7 +94,10 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	updatedUser, err := h.store.Update(context.Background(), user)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
+	defer cancel()
+
+	updatedUser, err := h.store.Update(ctx, user)
 	if err != nil {
 		h.handleStoreError(w, err)
 		return

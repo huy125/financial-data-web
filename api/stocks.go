@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // StockMetadata represents the metadata of a stock.
@@ -37,7 +39,10 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	symbol = strings.Trim(symbol, "\"")
 	symbol = strings.Trim(symbol, "'")
 
-	data, err := s.fetchStockData(symbol)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
+	defer cancel()
+
+	data, err := s.fetchStockData(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
@@ -67,7 +72,7 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
+func (s *Server) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
 	if s.apiKey == "" {
 		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
 	}
@@ -84,9 +89,15 @@ func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 	q.Set("apikey", s.apiKey)
 	baseURL.RawQuery = q.Encode()
 
-	resp, err := http.Get(baseURL.String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("error while calling external api: %w", err)
+		return nil, fmt.Errorf("error while constructing request for external api: %w", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error while sending request to external api: %w", err)
 	}
 	defer resp.Body.Close()
 
