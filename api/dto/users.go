@@ -5,24 +5,26 @@ import (
 	"strings"
 )
 
-// User represents user information
+const errorMsgSize = 5
+
+// User represents user information.
 type UserDto struct {
-	Id        string `json:"id"`
+	ID        string `json:"id"`
 	Email     string `json:"email"`
 	Firstname string `json:"firstname"`
 	Lastname  string `json:"lastname"`
 }
 
-// ValidationError represents a validation error
+// ValidationError represents a validation error.
 type ValidationError struct {
 	Error string `json:"error"`
 }
 
-// ValidationErrors represents a list of validation errors
+// ValidationErrors represents a list of validation errors.
 type ValidationErrors []ValidationError
 
 func (ve ValidationErrors) Error() string {
-	var errMsgs []string
+	errMsgs := make([]string, 0, errorMsgSize)
 
 	for _, err := range ve {
 		errMsgs = append(errMsgs, err.Error)

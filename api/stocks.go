@@ -1,13 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 )
 
 // StockMetadata represents the metadata of a stock.
@@ -36,7 +39,10 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	symbol = strings.Trim(symbol, "\"")
 	symbol = strings.Trim(symbol, "'")
 
-	data, err := s.fetchStockData(symbol)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
+	defer cancel()
+
+	data, err := s.fetchStockData(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
@@ -66,16 +72,34 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
+func (s *Server) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
 	if s.apiKey == "" {
 		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
 	}
 
-	url := fmt.Sprintf("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=%s&apikey=%s", symbol, s.apiKey)
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("error while calling external api: %v", err)
+	baseURL := &url.URL{
+		Scheme: "https",
+		Host:   "www.alphavantage.co",
+		Path:   "/query",
 	}
+
+	q := baseURL.Query()
+	q.Set("function", "TIME_SERIES_DAILY")
+	q.Set("symbol", symbol)
+	q.Set("apikey", s.apiKey)
+	baseURL.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while constructing request for external api: %w", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error while sending request to external api: %w", err)
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
@@ -86,13 +110,13 @@ func (s *Server) fetchStockData(symbol string) (*TimeSeriesDaily, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading response body: %v", err)
+		return nil, fmt.Errorf("error while reading response body: %w", err)
 	}
 
 	var data TimeSeriesDaily
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshaling JSON: %w", err)
 	}
 
 	return &data, nil
