@@ -44,12 +44,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", s.HelloServerHandler)
-	mux.HandleFunc("/stocks", s.GetStockBySymbolHandler)
+	mux.HandleFunc("GET /", s.HelloServerHandler)
+	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
 
 	userHandler := &UserHandler{store: s.store}
-	mux.HandleFunc("/users", userHandler.CreateUserHandler)
-	mux.HandleFunc("/users/{id}", userHandler.UpdateUserHandler)
+	mux.HandleFunc("POST /users", userHandler.CreateUserHandler)
+
+	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUserHandler)
+	mux.HandleFunc("GET /users/{id}", userHandler.GetUserHandler)
 
 	return mux
 }
