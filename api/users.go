@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/api/store"
@@ -19,7 +20,7 @@ type UserHandler struct {
 	store UserStore
 }
 
-// CreateUserHandler creates a new user with hashed password.
+// CreateUserHandler creates a new user.
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var userDto dto.UserDto
 	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
@@ -105,6 +106,37 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
+	if err != nil {
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// GetUserHandler gets an existing user.
+func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "Id is required", http.StatusBadRequest)
+		return
+	}
+
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		http.Error(w, "Failed to parse Id", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
+	defer cancel()
+
+	user, err := h.store.Find(ctx, uuid)
+	if err != nil {
+		h.handleStoreError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(user))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
