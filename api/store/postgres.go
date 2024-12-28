@@ -2,11 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	model "github.com/huy125/financial-data-web/api/store/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -114,6 +116,10 @@ func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 		&user.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+
 		return nil, err
 	}
 

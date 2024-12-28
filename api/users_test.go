@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testAPIKey = "testAPIKey"
+
 type storeMock struct {
 	mock.Mock
 }
@@ -132,8 +134,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 				).Return(test.wantUserModel, test.returnErr)
 			}
 
-			apiKey := "testApiKey"
-			srv := api.New(apiKey, store)
+			srv := api.New(testAPIKey, store)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -171,7 +172,6 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 	tests := []struct {
 		name string
 
-		uri      string
 		sendBody string
 
 		wantUserDto   *dto.UserDto
@@ -253,8 +253,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				).Return(test.wantUserModel, test.returnErr)
 			}
 
-			apiKey := "testApiKey"
-			srv := api.New(apiKey, store)
+			srv := api.New(testAPIKey, store)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -264,7 +263,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, reqURL, bytes.NewBufferString(test.sendBody))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewBufferString(test.sendBody))
 			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()
@@ -278,6 +277,90 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.JSONEq(t, string(test.expectedResponse), string(res))
+			}
+
+			store.AssertExpectations(t)
+		})
+	}
+}
+
+func TestServer_GetUserHandler(t *testing.T) {
+	t.Parallel()
+
+	id := uuid.New()
+	tests := []struct {
+		name string
+
+		wantUserModel *model.User
+		returnErr     error
+
+		wantStatus int
+		wantResult []byte
+	}{
+		{
+			name: "returns user successfully",
+
+			wantUserModel: &model.User{
+				ID:        id,
+				Email:     "test@example.com",
+				Firstname: "Bob",
+				Lastname:  "Smith",
+				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+				UpdatedAt: time.Now(),
+			},
+			returnErr: nil,
+
+			wantStatus: http.StatusOK,
+			wantResult: []byte(`
+				{
+					"id": "` + id.String() + `",
+					"email": "test@example.com",
+					"firstname": "Bob",
+					"lastname": "Smith"
+				}`,
+			),
+		},
+		{
+			name: "handles user not found error",
+
+			wantUserModel: nil,
+			returnErr:     store.ErrNotFound,
+
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			store := &storeMock{}
+			store.On("Find", id).Return(test.wantUserModel, test.returnErr)
+
+			srv := api.New(testAPIKey, store)
+
+			httpSrv := httptest.NewServer(srv)
+			t.Cleanup(func() { httpSrv.Close() })
+
+			reqURL := httpSrv.URL + "/users/" + id.String()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+			require.NoError(t, err)
+
+			rr := httptest.NewRecorder()
+
+			srv.ServeHTTP(rr, req)
+
+			assert.Equal(t, test.wantStatus, rr.Code)
+
+			if rr.Code == http.StatusOK {
+				res, err := io.ReadAll(rr.Body)
+				require.NoError(t, err)
+
+				assert.JSONEq(t, string(test.wantResult), string(res))
 			}
 
 			store.AssertExpectations(t)

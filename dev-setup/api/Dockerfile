@@ -30,8 +30,9 @@ ARG DATA_SOURCE_NAME
 
 ENV ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
 ENV DATA_SOURCE_NAME=${DATA_SOURCE_NAME}
+ENV LOG_LEVEL=${LOG_LEVEL}
 
 ARG HOST_IP="0.0.0.0"
 
 COPY --from=builder /build/server . 
-CMD sh -c "./server --apiKey=${ALPHA_VANTAGE_API_KEY} --host=${HOST_IP} --dsn=${DATA_SOURCE_NAME}"
+CMD sh -c "./server --apiKey=${ALPHA_VANTAGE_API_KEY} --host=${HOST_IP} --dsn=${DATA_SOURCE_NAME} --log.level=${LOG_LEVEL}"
