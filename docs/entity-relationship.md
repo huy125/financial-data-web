@@ -4,7 +4,7 @@ A user can request an analysis for many stocks. Each analysis corresponds to a p
 A stock can have many metrics associated with it (e.g., P/E ratio, EPS, etc.).
 A metric can be shared across multiple stocks.
 A stock can have many analyses (for different users or at different times).
-An analysis will result in a recommendation for a stock.
+An analysis results in a recommendation for a stock.
 
 ```mermaid
 erDiagram
