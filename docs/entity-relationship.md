@@ -15,6 +15,7 @@ erDiagram
         date created_at
         date updated_at
     }
+
     STOCK {
         int id PK
         string symbol
