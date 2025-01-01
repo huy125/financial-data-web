@@ -3,6 +3,7 @@
 A financial information aggregator service that provides a REST API.
 
 ## Entity Relationship Schema
+
 🎨 [Entity Schema](docs/entity-relationship.md)
 
 ## Prerequisites
