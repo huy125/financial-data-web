@@ -1,0 +1,7 @@
+CREATE TABLE analysis (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    stock_id UUID REFERENCES stock(id) ON DELETE CASCADE NOT NULL,
+    score NUMERIC NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
