@@ -37,7 +37,7 @@ down-schema:
 .PHONY: down-schema
 
 force-schema:
-	@echo "Force to the specified version"
+	@echo "Force to the specified version $(VERSION)..."
 	@docker run --rm --network $(NETWORK_NAME) -v $(PWD)/$(MIGRATION_DIR):/migrations \
 		$(MIGRATE_IMAGE) \
 		-source file:///migrations \

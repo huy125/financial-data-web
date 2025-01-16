@@ -1,0 +1,7 @@
+CREATE TABLE stock_metric (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    stock_id UUID REFERENCES stock(id) ON DELETE CASCADE NOT NULL,
+    metric_id UUID REFERENCES metric(id) ON DELETE CASCADE NOT NULL,
+    value NUMERIC NOT NULL,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
