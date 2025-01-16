@@ -1,5 +1,5 @@
 CREATE TABLE stock (
-	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     symbol VARCHAR(50) NOT NULL UNIQUE,
     company VARCHAR(255) NOT NULL
 );
