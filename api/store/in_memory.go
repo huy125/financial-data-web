@@ -12,6 +12,7 @@ import (
 type InMemory struct {
 	mu    sync.Mutex
 	users []model.User
+	metrics []model.Metric
 }
 
 func NewInMemory() (*InMemory, error) {
@@ -76,4 +77,24 @@ func (s *InMemory) Update(ctx context.Context, user *model.User) (*model.User, e
 	}
 
 	return nil, ErrNotFound
+}
+
+func (s *InMemory) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if offset > len(s.metrics) {
+		return nil, errors.New("offset is out of range")
+	}
+
+	start := offset
+	end := start + limit
+	if end > len(s.metrics) {
+		end = len(s.metrics)
+	}
+
+	metrics := make([]model.Metric, end-start)
+	copy(metrics, s.metrics[start:end])
+
+	return metrics, nil
 }

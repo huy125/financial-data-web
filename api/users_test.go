@@ -56,6 +56,10 @@ func (m *storeMock) Update(_ context.Context, user *model.User) (*model.User, er
 	return args.Get(0).(*model.User), args.Error(1)
 }
 
+func (m *storeMock) ListMetrics(_ context.Context, limit, offset int) ([]model.Metric, error) {
+	args := m.Called(limit, offset)
+	return args.Get(0).([]model.Metric), args.Error(1)
+}
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
 

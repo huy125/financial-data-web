@@ -17,7 +17,7 @@ import (
 const requestTimeout = 5
 
 type UserHandler struct {
-	store UserStore
+	store Store
 }
 
 // CreateUserHandler creates a new user.

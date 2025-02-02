@@ -147,3 +147,47 @@ func (p *Postgres) Update(ctx context.Context, user *model.User) (*model.User, e
 
 	return user, nil
 }
+
+func (p *Postgres) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
+	sql := "SELECT id, name, description FROM metric LIMIT $1 OFFSET $2"
+	rows, err := p.pool.Query(ctx, sql, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var metrics []model.Metric
+	for rows.Next() {
+		var metric model.Metric
+		if err := rows.Scan(&metric.ID, &metric.Name, &metric.Description); err != nil {
+			return nil, err
+		}
+		metrics = append(metrics, metric)
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return metrics, nil
+}
+
+func (p * Postgres) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
+	sql := `
+		INSERT INTO stock_metric (stock_id, metric_id, value)
+		VALUES ($1, $2, $3)
+		RETURNING id, recorded_at
+	`
+
+	err := p.pool.QueryRow(ctx, sql,
+		stockMetric.StockID,
+		stockMetric.MetricID,
+		stockMetric.Value,
+	).Scan(&stockMetric.ID, &stockMetric.RecordedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return stockMetric, nil
+}

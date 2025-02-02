@@ -110,7 +110,7 @@ func runServer(c *cli.Context) error {
 	return nil
 }
 
-func newStore(dsn string) (api.UserStore, error) {
+func newStore(dsn string) (api.Store, error) {
 	switch {
 	case dsn == "":
 		return store.NewInMemory()
