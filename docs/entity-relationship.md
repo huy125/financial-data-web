@@ -31,7 +31,6 @@ erDiagram
     STOCK_METRIC {
         int stock_id PK, FK
         int metric_id PK, FK
-        string name
         float value
         date recorded_at
     }
