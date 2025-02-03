@@ -148,6 +148,26 @@ func (p *Postgres) Update(ctx context.Context, user *model.User) (*model.User, e
 	return user, nil
 }
 
+func (p *Postgres) FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error) {
+	sql := "SELECT id, symbol, company FROM stock WHERE symbol = $1"
+	var stock model.Stock
+
+	err := p.pool.QueryRow(ctx, sql, symbol).Scan(
+		&stock.ID,
+		&stock.Symbol,
+		&stock.Company,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+
+	return &stock, nil
+}
+
 func (p *Postgres) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
 	sql := "SELECT id, name, description FROM metric LIMIT $1 OFFSET $2"
 	rows, err := p.pool.Query(ctx, sql, limit, offset)

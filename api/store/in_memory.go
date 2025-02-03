@@ -12,6 +12,8 @@ import (
 type InMemory struct {
 	mu    sync.Mutex
 	users []model.User
+	stocks []model.Stock
+	stockMetrics []model.StockMetric
 	metrics []model.Metric
 }
 
@@ -79,6 +81,19 @@ func (s *InMemory) Update(ctx context.Context, user *model.User) (*model.User, e
 	return nil, ErrNotFound
 }
 
+func (s *InMemory) FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, stock := range s.stocks {
+		if stock.Symbol == symbol {
+			return &stock, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
 func (s *InMemory) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -97,4 +112,14 @@ func (s *InMemory) ListMetrics(ctx context.Context, limit, offset int) ([]model.
 	copy(metrics, s.metrics[start:end])
 
 	return metrics, nil
+}
+
+func (s *InMemory) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stockMetric.ID = uuid.New()
+	s.stockMetrics = append(s.stockMetrics, *stockMetric)
+
+	return stockMetric, nil
 }
