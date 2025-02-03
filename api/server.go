@@ -13,6 +13,7 @@ type Store interface {
 	List(ctx context.Context, limit, offset int) ([]model.User, error)
 	Find(ctx context.Context, id uuid.UUID) (*model.User, error)
 	Update(ctx context.Context, user *model.User) (*model.User, error)
+	FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error)
 	ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error)
 	CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error)
 }
