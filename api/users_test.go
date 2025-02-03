@@ -56,10 +56,28 @@ func (m *storeMock) Update(_ context.Context, user *model.User) (*model.User, er
 	return args.Get(0).(*model.User), args.Error(1)
 }
 
+func (m *storeMock) FindStockBySymbol(_ context.Context, symbol string) (*model.Stock, error) {
+	args := m.Called(symbol)
+	if stock, ok := args.Get(0).(*model.Stock); ok {
+		return stock, args.Error(1)
+	}
+
+	return nil, args.Error(1)
+}
+
 func (m *storeMock) ListMetrics(_ context.Context, limit, offset int) ([]model.Metric, error) {
 	args := m.Called(limit, offset)
 	return args.Get(0).([]model.Metric), args.Error(1)
 }
+
+func (m *storeMock) CreateStockMetric(_ context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
+	args := m.Called(stockMetric)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.StockMetric), args.Error(1)
+}
+
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
 
