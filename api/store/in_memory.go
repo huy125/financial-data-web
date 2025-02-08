@@ -10,11 +10,11 @@ import (
 )
 
 type InMemory struct {
-	mu    sync.Mutex
-	users []model.User
-	stocks []model.Stock
+	mu           sync.Mutex
+	users        []model.User
+	stocks       []model.Stock
 	stockMetrics []model.StockMetric
-	metrics []model.Metric
+	metrics      []model.Metric
 }
 
 func NewInMemory() (*InMemory, error) {

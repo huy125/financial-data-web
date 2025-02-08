@@ -6,7 +6,7 @@ import (
 
 // Stock represents stock schema in database.
 type Stock struct {
-	ID        uuid.UUID
-	Symbol    string
-	Company   string
+	ID      uuid.UUID
+	Symbol  string
+	Company string
 }

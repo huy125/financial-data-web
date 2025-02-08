@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huy125/financial-data-web/api/store"
@@ -46,14 +47,6 @@ type AnnualReport struct {
 type StockHandler struct {
 	store  Store
 	apiKey string
-}
-
-var metricMappings = map[string]string{
-	"P/E Ratio":      "PERatio",
-	"EPS":            "EPS",
-	"Dividend Yield": "DividendYield",
-	"Market Cap":      "MarketCapitalization",
-	"Revenue Growth":    "QuarterlyRevenueGrowthYOY",
 }
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
@@ -217,7 +210,7 @@ func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, api
 
 func calculateDebtEquityRatio(_ context.Context, balanceSheet *BalanceSheetMetadata) (float64, error) {
 	if len(balanceSheet.AnnualReports) == 0 {
-		return 0, fmt.Errorf("no available data")
+		return 0, errors.New("no available data")
 	}
 
 	recentReport := balanceSheet.AnnualReports[0]
@@ -233,7 +226,7 @@ func calculateDebtEquityRatio(_ context.Context, balanceSheet *BalanceSheetMetad
 	}
 
 	if totalEquity == 0 {
-		return 0, fmt.Errorf("cannot division by zero")
+		return 0, errors.New("cannot division by zero")
 	}
 
 	ratio := totalLiabilities / totalEquity
@@ -241,118 +234,174 @@ func calculateDebtEquityRatio(_ context.Context, balanceSheet *BalanceSheetMetad
 }
 
 func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([]model.StockMetric, error) {
-	var updatedStockMetrics []model.StockMetric
-
 	stock, err := h.store.FindStockBySymbol(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("stock not found")
+			return nil, errors.New("stock not found")
 		}
 		return nil, fmt.Errorf("error while fetching stock by symbol: %w", err)
 	}
 
-	metrics, err := h.store.ListMetrics(ctx, 50, 0)
+	const maxNumMetric = 50
+	const offset = 0
+	metrics, err := h.store.ListMetrics(ctx, maxNumMetric, offset)
 	if err != nil {
 		return nil, err
 	}
 
-	metricMap := make(map[string]model.Metric)
-	for _, metric := range metrics {
-		metricMap[metric.Name] = metric
+	metricMap := buildMetricMap(metrics)
+	overview, balanceSheet, fetchErr := h.combineStockData(ctx, symbol)
+	if fetchErr != nil {
+		return nil, fetchErr
 	}
 
-	saveStockMetric := func(metric model.Metric, value float64) error {
-		now := time.Now()
-		stockMetric := &model.StockMetric{
-			StockID:    stock.ID,
-			MetricID:   metric.ID,
-			Value:      value,
-			RecordedAt: now,
-		}
+	var updatedStockMetrics []model.StockMetric
+	addMetric := h.metricAdder(ctx, stock, &updatedStockMetrics)
 
-		savedStockMetric, err := h.store.CreateStockMetric(ctx, stockMetric)
-		if err != nil {
-			return fmt.Errorf("failed to save metric %s for stock %s: %w", metric.Name, symbol, err)
-		}
-
-		updatedStockMetrics = append(updatedStockMetrics, *savedStockMetric)
-		return nil
+	if balanceSheet != nil {
+		processBalanceSheetMetrics(ctx, balanceSheet, metricMap, addMetric, symbol)
 	}
 
+	if overview != nil {
+		processOverviewMetrics(ctx, *overview, metricMap, addMetric)
+	}
+
+	return updatedStockMetrics, nil
+}
+
+func (h *StockHandler) combineStockData(
+	ctx context.Context,
+	symbol string,
+) (*map[string]string, *BalanceSheetMetadata, error) {
 	type fetchResult struct {
 		overview     *map[string]string
 		balanceSheet *BalanceSheetMetadata
-		err           error
+		err          error
 	}
 
-	numCh := 2;
+	const numCh = 2
 	resultCh := make(chan fetchResult, numCh)
+	var wg sync.WaitGroup
+	wg.Add(numCh)
 
 	go func() {
+		defer wg.Done()
 		overview, err := h.fetchStockOverview(ctx, symbol)
 		resultCh <- fetchResult{overview: overview, err: err}
 	}()
 
 	go func() {
+		defer wg.Done()
 		balanceSheet, err := h.fetchBalanceSheet(ctx, symbol)
 		resultCh <- fetchResult{balanceSheet: balanceSheet, err: err}
 	}()
 
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
 	var overview *map[string]string
 	var balanceSheet *BalanceSheetMetadata
-	var overviewErr, balanceSheetErr error
+	var fetchErrors []error
 
-	for i := 0; i < numCh; i++ {
-		res := <-resultCh
+	for res := range resultCh {
+		if res.err != nil {
+			fetchErrors = append(fetchErrors, res.err)
+		}
 		if res.overview != nil {
 			overview = res.overview
 		}
+
 		if res.balanceSheet != nil {
 			balanceSheet = res.balanceSheet
 		}
-		if res.err != nil {
-			if res.overview != nil {
-				overviewErr = res.err
-			} else {
-				balanceSheetErr = res.err
-			}
+	}
+
+	if len(fetchErrors) == numCh {
+		return nil, nil, fmt.Errorf("failed to fetch stock data: %w & %w", fetchErrors[0], fetchErrors[1])
+	}
+
+	return overview, balanceSheet, nil
+}
+
+func processBalanceSheetMetrics(
+	ctx context.Context,
+	balanceSheet *BalanceSheetMetadata,
+	metricMap map[string]model.Metric,
+	save func(model.Metric, float64),
+	symbol string,
+) {
+	if metric, ok := metricMap["Debt/Equity Ratio"]; ok {
+		value, err := calculateDebtEquityRatio(ctx, balanceSheet)
+		if err != nil {
+			log.Printf("failed to calculate Debt/Equity Ratio for stock %s: %v", symbol, err)
+			return
 		}
+		save(metric, value)
 	}
+}
 
-	if overviewErr != nil && balanceSheetErr != nil {
-		return nil, fmt.Errorf("failed to fetch stock metrics: overview error: %v, balance sheet error: %v", overviewErr, balanceSheetErr)
-	}
+func processOverviewMetrics(
+	_ context.Context,
+	overview map[string]string,
+	metricMap map[string]model.Metric,
+	save func(model.Metric, float64),
+) {
+	metricMapping := getMetricMapping()
 
-	if balanceSheet != nil {
-		if metric, ok := metricMap["Debt/Equity Ratio"]; ok {
-			value, err := calculateDebtEquityRatio(ctx, balanceSheet)
-			if err != nil {
-				log.Printf("failed to calculate Debt/Equity Ratio for stock %s: %v", symbol, err)
-			} else if err := saveStockMetric(metric, value); err != nil {
-				log.Printf("failed to save stock metric: %v", err)
-			}
+	for name, metric := range metricMap {
+		if name == "Debt/Equity Ratio" {
+			continue
 		}
-	}
-
-	if overview != nil {
-		overviewData := *overview
-		for name, metric := range metricMap {
-			if name != "Debt/Equity Ratio" {
-				if externalFieldName, ok := metricMappings[name]; ok {
-					if stringValue, ok := overviewData[externalFieldName]; ok {
-						value, err := strconv.ParseFloat(stringValue, 64)
-						if err != nil {
-							log.Printf("failed to parse value for metric %s from field %s: %v", name, externalFieldName, err)
-							continue
-						}
-						if err := saveStockMetric(metric, value); err != nil {
-							log.Printf("failed to save stock metric: %v", err)
-						}
-					}
+		if field, ok := metricMapping[name]; ok {
+			if valueStr, ok := overview[field]; ok {
+				value, err := strconv.ParseFloat(valueStr, 64)
+				if err != nil {
+					log.Printf("failed to parse value for metric %s: %v", name, err)
+					continue
 				}
+				save(metric, value)
 			}
 		}
 	}
+}
 
-	return updatedStockMetrics, nil
+func (h *StockHandler) metricAdder(
+	ctx context.Context,
+	stock *model.Stock,
+	updatedMetrics *[]model.StockMetric,
+) func(metric model.Metric, value float64) {
+	return func(metric model.Metric, value float64) {
+		stockMetric := &model.StockMetric{
+			StockID:    stock.ID,
+			MetricID:   metric.ID,
+			Value:      value,
+			RecordedAt: time.Now(),
+		}
+		savedMetric, err := h.store.CreateStockMetric(ctx, stockMetric)
+		if err != nil {
+			log.Printf("failed to save metric %s for stock %s: %v", metric.Name, stock.Symbol, err)
+			return
+		}
+		*updatedMetrics = append(*updatedMetrics, *savedMetric)
+	}
+}
+
+func buildMetricMap(metrics []model.Metric) map[string]model.Metric {
+	metricMap := make(map[string]model.Metric)
+	for _, metric := range metrics {
+		metricMap[metric.Name] = metric
+	}
+	return metricMap
+}
+
+func getMetricMapping() map[string]string {
+	return map[string]string{
+		"P/E Ratio":      "PERatio",
+		"EPS":            "EPS",
+		"Dividend Yield": "DividendYield",
+		"Market Cap":     "MarketCapitalization",
+		"Revenue Growth": "QuarterlyRevenueGrowthYOY",
+	}
 }

@@ -6,7 +6,7 @@ import (
 
 // Stock represents stock schema in database.
 type Metric struct {
-	ID        		uuid.UUID
-	Name    		string
-	Description 	string 
+	ID          uuid.UUID
+	Name        string
+	Description string
 }

@@ -192,7 +192,7 @@ func (p *Postgres) ListMetrics(ctx context.Context, limit, offset int) ([]model.
 	return metrics, nil
 }
 
-func (p * Postgres) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
+func (p *Postgres) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
 	sql := `
 		INSERT INTO stock_metric (stock_id, metric_id, value)
 		VALUES ($1, $2, $3)
@@ -204,7 +204,6 @@ func (p * Postgres) CreateStockMetric(ctx context.Context, stockMetric *model.St
 		stockMetric.MetricID,
 		stockMetric.Value,
 	).Scan(&stockMetric.ID, &stockMetric.RecordedAt)
-
 	if err != nil {
 		return nil, err
 	}
