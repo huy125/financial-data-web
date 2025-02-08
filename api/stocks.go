@@ -100,8 +100,8 @@ func (h *StockHandler) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// GetOverviewStockBySymbolHandler fetches general company overview for the given symbol.
-func (h *StockHandler) GetOverviewStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
+// GetStockAnalysisBySymbolHandler fetches general company overview for the given symbol.
+func (h *StockHandler) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
 		return

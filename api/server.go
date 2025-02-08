@@ -50,7 +50,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /", s.HelloServerHandler)
 	stockHandler := &StockHandler{store: s.store, apiKey: s.apiKey}
 	mux.HandleFunc("GET /stocks", stockHandler.GetStockBySymbolHandler)
-	mux.HandleFunc("GET /stocks/overview", stockHandler.GetOverviewStockBySymbolHandler)
+	mux.HandleFunc("GET /stocks/analysis", stockHandler.GetStockAnalysisBySymbolHandler)
 
 	userHandler := &UserHandler{store: s.store}
 	mux.HandleFunc("POST /users", userHandler.CreateUserHandler)
