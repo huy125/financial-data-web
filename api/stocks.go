@@ -33,11 +33,22 @@ type TimeSeriesDaily struct {
 	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
+type OverviewMetadata struct {
+	Symbol                    string `json:"symbol"`
+	MarketCapitalization      string `json:"MarketCapitalization"`
+	PERatio                   string `json:"PERatio"`
+	EPS                       string `json:"EPS"`
+	DividendYield             string `json:"DividendYield"`
+	QuarterlyRevenueGrowthYOY string `json:"QuarterlyRevenueGrowthYOY"`
+}
+
+// BalanceSheetMetadata represents a summary of the financial balances of a stock.
 type BalanceSheetMetadata struct {
 	Symbol        string `json:"symbol"`
 	AnnualReports []AnnualReport
 }
 
+// AnnualReport represents key financial data from a stock's annual balance sheet report.
 type AnnualReport struct {
 	FiscalDateEnding       string `json:"fiscalDateEnding"`
 	TotalLiabilities       string `json:"totalLiabilities"`
@@ -150,8 +161,8 @@ func (h *StockHandler) fetchStockData(ctx context.Context, symbol string) (*Time
 	return fetchDataFromAlphaVantage[TimeSeriesDaily](ctx, "TIME_SERIES_DAILY", symbol, h.apiKey)
 }
 
-func (h *StockHandler) fetchStockOverview(ctx context.Context, symbol string) (*map[string]string, error) {
-	return fetchDataFromAlphaVantage[map[string]string](ctx, "OVERVIEW", symbol, h.apiKey)
+func (h *StockHandler) fetchStockOverview(ctx context.Context, symbol string) (*OverviewMetadata, error) {
+	return fetchDataFromAlphaVantage[OverviewMetadata](ctx, "OVERVIEW", symbol, h.apiKey)
 }
 
 func (h *StockHandler) fetchBalanceSheet(ctx context.Context, symbol string) (*BalanceSheetMetadata, error) {
@@ -263,7 +274,7 @@ func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([
 	}
 
 	if overview != nil {
-		processOverviewMetrics(ctx, *overview, metricMap, addMetric)
+		processOverviewMetrics(ctx, overview, metricMap, addMetric)
 	}
 
 	return updatedStockMetrics, nil
@@ -272,9 +283,9 @@ func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([
 func (h *StockHandler) combineStockData(
 	ctx context.Context,
 	symbol string,
-) (*map[string]string, *BalanceSheetMetadata, error) {
+) (*OverviewMetadata, *BalanceSheetMetadata, error) {
 	type fetchResult struct {
-		overview     *map[string]string
+		overview     *OverviewMetadata
 		balanceSheet *BalanceSheetMetadata
 		err          error
 	}
@@ -301,7 +312,7 @@ func (h *StockHandler) combineStockData(
 		close(resultCh)
 	}()
 
-	var overview *map[string]string
+	var overview *OverviewMetadata
 	var balanceSheet *BalanceSheetMetadata
 	var fetchErrors []error
 
@@ -344,25 +355,25 @@ func processBalanceSheetMetrics(
 
 func processOverviewMetrics(
 	_ context.Context,
-	overview map[string]string,
+	overview *OverviewMetadata,
 	metricMap map[string]model.Metric,
 	save func(model.Metric, float64),
 ) {
-	metricMapping := getMetricMapping()
+	metricExtractors := map[string]func(*OverviewMetadata) string{
+		"P/E Ratio":      func(o *OverviewMetadata) string { return o.PERatio },
+		"EPS":            func(o *OverviewMetadata) string { return o.EPS },
+		"Dividend Yield": func(o *OverviewMetadata) string { return o.DividendYield },
+		"Market Cap":     func(o *OverviewMetadata) string { return o.MarketCapitalization },
+		"Revenue Growth": func(o *OverviewMetadata) string { return o.QuarterlyRevenueGrowthYOY },
+	}
 
-	for name, metric := range metricMap {
-		if name == "Debt/Equity Ratio" {
-			continue
-		}
-		if field, ok := metricMapping[name]; ok {
-			if valueStr, ok := overview[field]; ok {
-				value, err := strconv.ParseFloat(valueStr, 64)
-				if err != nil {
-					log.Printf("failed to parse value for metric %s: %v", name, err)
-					continue
-				}
-				save(metric, value)
+	for name, metricModel := range metricMap {
+		if extractor, exists := metricExtractors[name]; exists {
+			value, err := strconv.ParseFloat(extractor(overview), 64)
+			if err != nil {
+				log.Printf("failed to convert metric %s to float: %v", name, err)
 			}
+			save(metricModel, value)
 		}
 	}
 }
@@ -394,14 +405,4 @@ func buildMetricMap(metrics []model.Metric) map[string]model.Metric {
 		metricMap[metric.Name] = metric
 	}
 	return metricMap
-}
-
-func getMetricMapping() map[string]string {
-	return map[string]string{
-		"P/E Ratio":      "PERatio",
-		"EPS":            "EPS",
-		"Dividend Yield": "DividendYield",
-		"Market Cap":     "MarketCapitalization",
-		"Revenue Growth": "QuarterlyRevenueGrowthYOY",
-	}
 }
