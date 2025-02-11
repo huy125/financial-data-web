@@ -55,13 +55,8 @@ type AnnualReport struct {
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
 }
 
-type StockHandler struct {
-	store  Store
-	apiKey string
-}
-
 // GetStockBySymbolHandler fetches stock data for the given symbol.
-func (h *StockHandler) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
 		return
@@ -74,7 +69,7 @@ func (h *StockHandler) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Re
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	data, err := h.fetchStockData(ctx, symbol)
+	data, err := s.fetchStockData(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
@@ -105,7 +100,7 @@ func (h *StockHandler) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Re
 }
 
 // GetStockAnalysisBySymbolHandler fetches general company overview for the given symbol.
-func (h *StockHandler) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
 		return
@@ -118,7 +113,7 @@ func (h *StockHandler) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r 
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	data, err := h.fetchStockOverview(ctx, symbol)
+	data, err := s.fetchStockOverview(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
@@ -129,7 +124,7 @@ func (h *StockHandler) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	_, err = h.updateStockMetrics(ctx, symbol)
+	_, err = s.updateStockMetrics(ctx, symbol)
 	if err != nil {
 		http.Error(w,
 			fmt.Sprintf("could not update stock metric: %v", err),
@@ -157,16 +152,16 @@ func (h *StockHandler) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r 
 	}
 }
 
-func (h *StockHandler) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
-	return fetchDataFromAlphaVantage[TimeSeriesDaily](ctx, "TIME_SERIES_DAILY", symbol, h.apiKey)
+func (s *Server) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
+	return fetchDataFromAlphaVantage[TimeSeriesDaily](ctx, "TIME_SERIES_DAILY", symbol, s.apiKey)
 }
 
-func (h *StockHandler) fetchStockOverview(ctx context.Context, symbol string) (*OverviewMetadata, error) {
-	return fetchDataFromAlphaVantage[OverviewMetadata](ctx, "OVERVIEW", symbol, h.apiKey)
+func (s *Server) fetchStockOverview(ctx context.Context, symbol string) (*OverviewMetadata, error) {
+	return fetchDataFromAlphaVantage[OverviewMetadata](ctx, "OVERVIEW", symbol, s.apiKey)
 }
 
-func (h *StockHandler) fetchBalanceSheet(ctx context.Context, symbol string) (*BalanceSheetMetadata, error) {
-	return fetchDataFromAlphaVantage[BalanceSheetMetadata](ctx, "BALANCE_SHEET", symbol, h.apiKey)
+func (s *Server) fetchBalanceSheet(ctx context.Context, symbol string) (*BalanceSheetMetadata, error) {
+	return fetchDataFromAlphaVantage[BalanceSheetMetadata](ctx, "BALANCE_SHEET", symbol, s.apiKey)
 }
 
 func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, apiKey string) (*T, error) {
@@ -219,7 +214,7 @@ func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, api
 	return &data, nil
 }
 
-func calculateDebtEquityRatio(_ context.Context, balanceSheet *BalanceSheetMetadata) (float64, error) {
+func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, error) {
 	if len(balanceSheet.AnnualReports) == 0 {
 		return 0, errors.New("no available data")
 	}
@@ -237,15 +232,15 @@ func calculateDebtEquityRatio(_ context.Context, balanceSheet *BalanceSheetMetad
 	}
 
 	if totalEquity == 0 {
-		return 0, errors.New("cannot division by zero")
+		return 0, errors.New("cannot divide by zero")
 	}
 
 	ratio := totalLiabilities / totalEquity
 	return ratio, nil
 }
 
-func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([]model.StockMetric, error) {
-	stock, err := h.store.FindStockBySymbol(ctx, symbol)
+func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]model.StockMetric, error) {
+	stock, err := s.store.FindStockBySymbol(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, errors.New("stock not found")
@@ -255,19 +250,19 @@ func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([
 
 	const maxNumMetric = 50
 	const offset = 0
-	metrics, err := h.store.ListMetrics(ctx, maxNumMetric, offset)
+	metrics, err := s.store.ListMetrics(ctx, maxNumMetric, offset)
 	if err != nil {
 		return nil, err
 	}
 
 	metricMap := buildMetricMap(metrics)
-	overview, balanceSheet, fetchErr := h.combineStockData(ctx, symbol)
+	overview, balanceSheet, fetchErr := s.combineStockData(ctx, symbol)
 	if fetchErr != nil {
 		return nil, fetchErr
 	}
 
 	var updatedStockMetrics []model.StockMetric
-	addMetric := h.metricAdder(ctx, stock, &updatedStockMetrics)
+	addMetric := s.metricAdder(ctx, stock, &updatedStockMetrics)
 
 	if balanceSheet != nil {
 		processBalanceSheetMetrics(ctx, balanceSheet, metricMap, addMetric, symbol)
@@ -280,7 +275,7 @@ func (h *StockHandler) updateStockMetrics(ctx context.Context, symbol string) ([
 	return updatedStockMetrics, nil
 }
 
-func (h *StockHandler) combineStockData(
+func (s *Server) combineStockData(
 	ctx context.Context,
 	symbol string,
 ) (*OverviewMetadata, *BalanceSheetMetadata, error) {
@@ -297,13 +292,13 @@ func (h *StockHandler) combineStockData(
 
 	go func() {
 		defer wg.Done()
-		overview, err := h.fetchStockOverview(ctx, symbol)
+		overview, err := s.fetchStockOverview(ctx, symbol)
 		resultCh <- fetchResult{overview: overview, err: err}
 	}()
 
 	go func() {
 		defer wg.Done()
-		balanceSheet, err := h.fetchBalanceSheet(ctx, symbol)
+		balanceSheet, err := s.fetchBalanceSheet(ctx, symbol)
 		resultCh <- fetchResult{balanceSheet: balanceSheet, err: err}
 	}()
 
@@ -337,14 +332,14 @@ func (h *StockHandler) combineStockData(
 }
 
 func processBalanceSheetMetrics(
-	ctx context.Context,
+	_ context.Context,
 	balanceSheet *BalanceSheetMetadata,
 	metricMap map[string]model.Metric,
 	save func(model.Metric, float64),
 	symbol string,
 ) {
 	if metric, ok := metricMap["Debt/Equity Ratio"]; ok {
-		value, err := calculateDebtEquityRatio(ctx, balanceSheet)
+		value, err := calculateDebtEquityRatio(balanceSheet)
 		if err != nil {
 			log.Printf("failed to calculate Debt/Equity Ratio for stock %s: %v", symbol, err)
 			return
@@ -378,7 +373,7 @@ func processOverviewMetrics(
 	}
 }
 
-func (h *StockHandler) metricAdder(
+func (s *Server) metricAdder(
 	ctx context.Context,
 	stock *model.Stock,
 	updatedMetrics *[]model.StockMetric,
@@ -390,7 +385,7 @@ func (h *StockHandler) metricAdder(
 			Value:      value,
 			RecordedAt: time.Now(),
 		}
-		savedMetric, err := h.store.CreateStockMetric(ctx, stockMetric)
+		savedMetric, err := s.store.CreateStockMetric(ctx, stockMetric)
 		if err != nil {
 			log.Printf("failed to save metric %s for stock %s: %v", metric.Name, stock.Symbol, err)
 			return

@@ -48,15 +48,12 @@ func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /", s.HelloServerHandler)
-	stockHandler := &StockHandler{store: s.store, apiKey: s.apiKey}
-	mux.HandleFunc("GET /stocks", stockHandler.GetStockBySymbolHandler)
-	mux.HandleFunc("GET /stocks/analysis", stockHandler.GetStockAnalysisBySymbolHandler)
+	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
+	mux.HandleFunc("GET /stocks/analysis", s.GetStockAnalysisBySymbolHandler)
 
-	userHandler := &UserHandler{store: s.store}
-	mux.HandleFunc("POST /users", userHandler.CreateUserHandler)
-
-	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUserHandler)
-	mux.HandleFunc("GET /users/{id}", userHandler.GetUserHandler)
+	mux.HandleFunc("POST /users", s.CreateUserHandler)
+	mux.HandleFunc("PUT /users/{id}", s.UpdateUserHandler)
+	mux.HandleFunc("GET /users/{id}", s.GetUserHandler)
 
 	return mux
 }
