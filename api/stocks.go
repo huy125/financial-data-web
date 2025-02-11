@@ -55,6 +55,12 @@ type AnnualReport struct {
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
 }
 
+type fetchResult struct {
+	overview     *OverviewMetadata
+	balanceSheet *BalanceSheetMetadata
+	err          error
+}
+
 // GetStockBySymbolHandler fetches stock data for the given symbol.
 func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
@@ -279,12 +285,6 @@ func (s *Server) combineStockData(
 	ctx context.Context,
 	symbol string,
 ) (*OverviewMetadata, *BalanceSheetMetadata, error) {
-	type fetchResult struct {
-		overview     *OverviewMetadata
-		balanceSheet *BalanceSheetMetadata
-		err          error
-	}
-
 	const numCh = 2
 	resultCh := make(chan fetchResult, numCh)
 	var wg sync.WaitGroup
