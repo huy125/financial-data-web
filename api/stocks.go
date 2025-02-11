@@ -262,14 +262,14 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]model
 	}
 
 	var updatedStockMetrics []model.StockMetric
-	addMetric := s.metricAdder(ctx, stock, &updatedStockMetrics)
+	saveStockMetric := s.saveStockMetric(ctx, stock, &updatedStockMetrics)
 
 	if balanceSheet != nil {
-		processBalanceSheetMetrics(ctx, balanceSheet, metricMap, addMetric, symbol)
+		processBalanceSheetMetrics(ctx, balanceSheet, metricMap, saveStockMetric, symbol)
 	}
 
 	if overview != nil {
-		processOverviewMetrics(ctx, overview, metricMap, addMetric)
+		processOverviewMetrics(ctx, overview, metricMap, saveStockMetric)
 	}
 
 	return updatedStockMetrics, nil
@@ -373,7 +373,7 @@ func processOverviewMetrics(
 	}
 }
 
-func (s *Server) metricAdder(
+func (s *Server) saveStockMetric(
 	ctx context.Context,
 	stock *model.Stock,
 	updatedMetrics *[]model.StockMetric,
