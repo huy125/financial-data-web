@@ -395,7 +395,7 @@ func (s *Server) metricAdder(
 }
 
 func buildMetricMap(metrics []model.Metric) map[string]model.Metric {
-	metricMap := make(map[string]model.Metric)
+	metricMap := make(map[string]model.Metric, len(metrics))
 	for _, metric := range metrics {
 		metricMap[metric.Name] = metric
 	}
