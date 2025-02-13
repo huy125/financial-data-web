@@ -58,7 +58,7 @@ type AnnualReport struct {
 type fetchResult struct {
 	overview     *OverviewMetadata
 	balanceSheet *BalanceSheetMetadata
-	err          error
+	overviewErr, balanceSheetErr          error
 }
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
@@ -285,36 +285,34 @@ func (s *Server) combineStockData(
 	ctx context.Context,
 	symbol string,
 ) (*OverviewMetadata, *BalanceSheetMetadata, error) {
-	const numCh = 2
-	resultCh := make(chan fetchResult, numCh)
+	const fetches = 2
+	resultCh := make(chan fetchResult, fetches)
+	defer close(resultCh)
+
 	var wg sync.WaitGroup
-	wg.Add(numCh)
-
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		overview, err := s.fetchStockOverview(ctx, symbol)
-		resultCh <- fetchResult{overview: overview, err: err}
+
+		overview, overviewErr := s.fetchStockOverview(ctx, symbol)
+		resultCh <- fetchResult{overview: overview, overviewErr: overviewErr}
 	}()
 
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		balanceSheet, err := s.fetchBalanceSheet(ctx, symbol)
-		resultCh <- fetchResult{balanceSheet: balanceSheet, err: err}
+
+		balanceSheet, balanceSheetErr := s.fetchBalanceSheet(ctx, symbol)
+		resultCh <- fetchResult{balanceSheet: balanceSheet, balanceSheetErr: balanceSheetErr}
 	}()
 
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
+	wg.Wait()
 
 	var overview *OverviewMetadata
 	var balanceSheet *BalanceSheetMetadata
-	var fetchErrors []error
+	var overviewErr, balanceSheetErr error
 
 	for res := range resultCh {
-		if res.err != nil {
-			fetchErrors = append(fetchErrors, res.err)
-		}
 		if res.overview != nil {
 			overview = res.overview
 		}
@@ -322,10 +320,18 @@ func (s *Server) combineStockData(
 		if res.balanceSheet != nil {
 			balanceSheet = res.balanceSheet
 		}
+
+		if res.overviewErr != nil {
+			overviewErr = res.overviewErr
+		}
+
+		if res.balanceSheetErr != nil {
+			balanceSheetErr = res.balanceSheetErr
+		}
 	}
 
-	if len(fetchErrors) == numCh {
-		return nil, nil, fmt.Errorf("failed to fetch stock data: %w & %w", fetchErrors[0], fetchErrors[1])
+	if overviewErr != nil && balanceSheetErr != nil {
+		return nil, nil, errors.Join(overviewErr, balanceSheetErr)
 	}
 
 	return overview, balanceSheet, nil
