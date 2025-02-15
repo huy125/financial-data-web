@@ -115,7 +115,7 @@ func newStore(dsn string) (api.Store, error) {
 	case dsn == "":
 		return store.NewInMemory()
 	case strings.HasPrefix(dsn, "postgres"):
-		return store.NewPostgres(store.WithDSN(dsn))
+		return store.New(store.WithDSN(dsn))
 	default:
 		return nil, errors.New("unsupported store")
 	}

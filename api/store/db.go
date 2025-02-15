@@ -17,21 +17,21 @@ const (
 	maxConnIdleTime int8 = 1 // 1 minute
 )
 
-type Postgres struct {
+type DB struct {
 	pool *pgxpool.Pool
 	dsn  string
 }
 
-type Option func(*Postgres)
+type Option func(*DB)
 
 func WithDSN(dsn string) Option {
-	return func(p *Postgres) {
+	return func(p *DB) {
 		p.dsn = dsn
 	}
 }
 
-func NewPostgres(opts ...Option) (*Postgres, error) {
-	p := Postgres{}
+func New(opts ...Option) (*DB, error) {
+	p := DB{}
 	for _, opt := range opts {
 		opt(&p)
 	}
@@ -56,12 +56,12 @@ func NewPostgres(opts ...Option) (*Postgres, error) {
 		return nil, fmt.Errorf("ping connection: %w", err)
 	}
 
-	return &Postgres{
+	return &DB{
 		pool: pool,
 	}, nil
 }
 
-func (p *Postgres) Create(ctx context.Context, user *model.User) (*model.User, error) {
+func (p *DB) Create(ctx context.Context, user *model.User) (*model.User, error) {
 	sql := `
 		INSERT INTO users (email, firstname, lastname)
 		VALUES ($1, $2, $3)
@@ -80,7 +80,7 @@ func (p *Postgres) Create(ctx context.Context, user *model.User) (*model.User, e
 	return user, nil
 }
 
-func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, error) {
+func (p *DB) List(ctx context.Context, limit, offset int) ([]model.User, error) {
 	sql := "SELECT id, email, firstname, lastname FROM users LIMIT $1 OFFSET $2"
 	rows, err := p.pool.Query(ctx, sql, limit, offset)
 	if err != nil {
@@ -104,7 +104,7 @@ func (p *Postgres) List(ctx context.Context, limit, offset int) ([]model.User, e
 	return users, nil
 }
 
-func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
+func (p *DB) Find(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	sql := "SELECT id, email, firstname, lastname, created_at, updated_at FROM users WHERE id = $1"
 	var user model.User
 	err := p.pool.QueryRow(ctx, sql, id).Scan(
@@ -126,7 +126,7 @@ func (p *Postgres) Find(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return &user, nil
 }
 
-func (p *Postgres) Update(ctx context.Context, user *model.User) (*model.User, error) {
+func (p *DB) Update(ctx context.Context, user *model.User) (*model.User, error) {
 	sql := `
 		UPDATE users
 		SET email = $1,
@@ -148,7 +148,7 @@ func (p *Postgres) Update(ctx context.Context, user *model.User) (*model.User, e
 	return user, nil
 }
 
-func (p *Postgres) FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error) {
+func (p *DB) FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error) {
 	sql := "SELECT id, symbol, company FROM stock WHERE symbol = $1"
 	var stock model.Stock
 
@@ -168,7 +168,7 @@ func (p *Postgres) FindStockBySymbol(ctx context.Context, symbol string) (*model
 	return &stock, nil
 }
 
-func (p *Postgres) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
+func (p *DB) ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error) {
 	sql := "SELECT id, name, description FROM metric LIMIT $1 OFFSET $2"
 	rows, err := p.pool.Query(ctx, sql, limit, offset)
 	if err != nil {
@@ -192,7 +192,7 @@ func (p *Postgres) ListMetrics(ctx context.Context, limit, offset int) ([]model.
 	return metrics, nil
 }
 
-func (p *Postgres) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
+func (p *DB) CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error) {
 	sql := `
 		INSERT INTO stock_metric (stock_id, metric_id, value)
 		VALUES ($1, $2, $3)
