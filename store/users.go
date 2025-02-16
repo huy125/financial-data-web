@@ -10,7 +10,7 @@ import (
 )
 
 type Model struct {
-	ID uuid.UUID
+	ID        uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

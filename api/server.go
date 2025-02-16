@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/hamba/cmd/v2/observe"
+	"github.com/hamba/logger/v2"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -24,13 +26,16 @@ type Server struct {
 
 	apiKey string
 	store  Store
+
+	log *logger.Logger
 }
 
 // New creates a new API server.
-func New(apiKey string, store Store) *Server {
+func New(apiKey string, store Store, obsrv *observe.Observer) *Server {
 	s := &Server{
 		apiKey: apiKey,
 		store:  store,
+		log:    obsrv.Log,
 	}
 
 	s.h = s.routes()
