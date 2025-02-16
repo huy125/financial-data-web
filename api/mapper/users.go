@@ -5,11 +5,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api/dto"
-	model "github.com/huy125/financial-data-web/api/store/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
 // ToAPIUser converts a store user to an API user.
-func ToAPIUser(u *model.User) *dto.UserDto {
+func ToAPIUser(u *store.User) *dto.UserDto {
 	return &dto.UserDto{
 		ID:        u.ID.String(),
 		Email:     u.Email,
@@ -19,9 +19,9 @@ func ToAPIUser(u *model.User) *dto.UserDto {
 }
 
 // ToStoreUser converts an API user to a store user.
-func ToStoreUser(u *dto.UserDto) (*model.User, error) {
+func ToStoreUser(u *dto.UserDto) (*store.User, error) {
 	now := time.Now()
-	user := &model.User{
+	user := &store.User{
 		Email:     u.Email,
 		Firstname: u.Firstname,
 		Lastname:  u.Lastname,
@@ -29,15 +29,15 @@ func ToStoreUser(u *dto.UserDto) (*model.User, error) {
 
 	if u.ID == "" {
 		user.ID = uuid.New()
-		user.CreatedAt = now
-		user.UpdatedAt = now
+		user.CreatedAt = &now
+		user.UpdatedAt = &now
 	} else {
 		id, err := uuid.Parse(u.ID)
 		if err != nil {
 			return nil, err
 		}
 		user.ID = id
-		user.UpdatedAt = now
+		user.UpdatedAt = &now
 	}
 
 	return user, nil

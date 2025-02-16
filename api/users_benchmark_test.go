@@ -9,25 +9,27 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api"
-	model "github.com/huy125/financial-data-web/api/store/models"
+	"github.com/huy125/financial-data-web/api/store"
 	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkGetUserHandler(b *testing.B) {
 	id := uuid.New()
 
-	store := &storeMock{}
-	wantUserModel := &model.User{
+	storeMock := &storeMock{}
+	createdAt := time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC)
+	updatedAt := time.Now()
+	wantUserModel := &store.User{
 		ID:        id,
 		Email:     "test@example.com",
 		Firstname: "Bob",
 		Lastname:  "Smith",
-		CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
-		UpdatedAt: time.Now(),
+		CreatedAt: &createdAt,
+		UpdatedAt: &updatedAt,
 	}
-	store.On("Find", id).Return(wantUserModel, nil)
+	storeMock.On("Find", id).Return(wantUserModel, nil)
 
-	srv := api.New(testAPIKey, store)
+	srv := api.New(testAPIKey, storeMock)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })

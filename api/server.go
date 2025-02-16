@@ -5,17 +5,17 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	model "github.com/huy125/financial-data-web/api/store/models"
+	"github.com/huy125/financial-data-web/api/store"
 )
 
 type Store interface {
-	Create(ctx context.Context, user *model.User) (*model.User, error)
-	List(ctx context.Context, limit, offset int) ([]model.User, error)
-	Find(ctx context.Context, id uuid.UUID) (*model.User, error)
-	Update(ctx context.Context, user *model.User) (*model.User, error)
-	FindStockBySymbol(ctx context.Context, symbol string) (*model.Stock, error)
-	ListMetrics(ctx context.Context, limit, offset int) ([]model.Metric, error)
-	CreateStockMetric(ctx context.Context, stockMetric *model.StockMetric) (*model.StockMetric, error)
+	Create(ctx context.Context, user *store.User) (*store.User, error)
+	List(ctx context.Context, limit, offset int) ([]store.User, error)
+	Find(ctx context.Context, id uuid.UUID) (*store.User, error)
+	Update(ctx context.Context, user *store.User) (*store.User, error)
+	FindStockBySymbol(ctx context.Context, symbol string) (*store.Stock, error)
+	ListMetrics(ctx context.Context, limit, offset int) ([]store.Metric, error)
+	CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*store.StockMetric, error)
 }
 
 // Server is the API server.

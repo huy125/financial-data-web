@@ -49,14 +49,13 @@ func (s *stockService) FindStockBySymbol(ctx context.Context, symbol string) (*S
 }
 
 
-func (s *stockService) CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*StockMetric, error) {
+func (s *stockService) CreateStockMetric(ctx context.Context, stockMetric StockMetric) (*StockMetric, error) {
 	sql := `
 		INSERT INTO stock_metric (stock_id, metric_id, value)
 		VALUES ($1, $2, $3)
 		RETURNING id, recorded_at
 	`
 
-	var stockMetric StockMetric
 	err := s.db.pool.QueryRow(ctx, sql,
 		stockMetric.StockID,
 		stockMetric.MetricID,

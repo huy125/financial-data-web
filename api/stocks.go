@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/huy125/financial-data-web/api/store"
-	model "github.com/huy125/financial-data-web/api/store/models"
 )
 
 // StockMetadata represents the metadata of a stock.
@@ -245,7 +244,7 @@ func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, erro
 	return ratio, nil
 }
 
-func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]model.StockMetric, error) {
+func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store.StockMetric, error) {
 	stock, err := s.store.FindStockBySymbol(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -267,7 +266,7 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]model
 		return nil, fetchErr
 	}
 
-	var updatedStockMetrics []model.StockMetric
+	var updatedStockMetrics []store.StockMetric
 	saveStockMetric := s.saveStockMetric(ctx, stock, &updatedStockMetrics)
 
 	if balanceSheet != nil {
@@ -340,8 +339,8 @@ func (s *Server) combineStockData(
 func processBalanceSheetMetrics(
 	_ context.Context,
 	balanceSheet *BalanceSheetMetadata,
-	metricMap map[string]model.Metric,
-	save func(model.Metric, float64),
+	metricMap map[string]store.Metric,
+	save func(store.Metric, float64),
 	symbol string,
 ) {
 	if metric, ok := metricMap["Debt/Equity Ratio"]; ok {
@@ -357,8 +356,8 @@ func processBalanceSheetMetrics(
 func processOverviewMetrics(
 	_ context.Context,
 	overview *OverviewMetadata,
-	metricMap map[string]model.Metric,
-	save func(model.Metric, float64),
+	metricMap map[string]store.Metric,
+	save func(store.Metric, float64),
 ) {
 	metricExtractors := map[string]func(*OverviewMetadata) string{
 		"P/E Ratio":      func(o *OverviewMetadata) string { return o.PERatio },
@@ -381,17 +380,11 @@ func processOverviewMetrics(
 
 func (s *Server) saveStockMetric(
 	ctx context.Context,
-	stock *model.Stock,
-	updatedMetrics *[]model.StockMetric,
-) func(metric model.Metric, value float64) {
-	return func(metric model.Metric, value float64) {
-		stockMetric := &model.StockMetric{
-			StockID:    stock.ID,
-			MetricID:   metric.ID,
-			Value:      value,
-			RecordedAt: time.Now(),
-		}
-		savedMetric, err := s.store.CreateStockMetric(ctx, stockMetric)
+	stock *store.Stock,
+	updatedMetrics *[]store.StockMetric,
+) func(metric store.Metric, value float64) {
+	return func(metric store.Metric, value float64) {
+		savedMetric, err := s.store.CreateStockMetric(ctx, stock.ID, metric.ID, value)
 		if err != nil {
 			log.Printf("failed to save metric %s for stock %s: %v", metric.Name, stock.Symbol, err)
 			return
@@ -400,8 +393,8 @@ func (s *Server) saveStockMetric(
 	}
 }
 
-func buildMetricMap(metrics []model.Metric) map[string]model.Metric {
-	metricMap := make(map[string]model.Metric, len(metrics))
+func buildMetricMap(metrics []store.Metric) map[string]store.Metric {
+	metricMap := make(map[string]store.Metric, len(metrics))
 	for _, metric := range metrics {
 		metricMap[metric.Name] = metric
 	}

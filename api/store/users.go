@@ -22,7 +22,6 @@ type userService struct {
 	db *DB
 }
 
-
 func (s *userService) Create(ctx context.Context, user *User) (*User, error) {
 	sql := `
 		INSERT INTO users (email, firstname, lastname)
@@ -42,9 +41,9 @@ func (s *userService) Create(ctx context.Context, user *User) (*User, error) {
 	return user, nil
 }
 
-func (p *DB) List(ctx context.Context, limit, offset int) ([]User, error) {
+func (s *userService) List(ctx context.Context, limit, offset int) ([]User, error) {
 	sql := "SELECT id, email, firstname, lastname FROM users LIMIT $1 OFFSET $2"
-	rows, err := p.pool.Query(ctx, sql, limit, offset)
+	rows, err := s.db.pool.Query(ctx, sql, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -66,10 +65,10 @@ func (p *DB) List(ctx context.Context, limit, offset int) ([]User, error) {
 	return users, nil
 }
 
-func (p *DB) Find(ctx context.Context, id uuid.UUID) (*User, error) {
+func (s *userService) Find(ctx context.Context, id uuid.UUID) (*User, error) {
 	sql := "SELECT id, email, firstname, lastname, created_at, updated_at FROM users WHERE id = $1"
 	var user User
-	err := p.pool.QueryRow(ctx, sql, id).Scan(
+	err := s.db.pool.QueryRow(ctx, sql, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.Firstname,
@@ -88,7 +87,7 @@ func (p *DB) Find(ctx context.Context, id uuid.UUID) (*User, error) {
 	return &user, nil
 }
 
-func (p *DB) Update(ctx context.Context, user *User) (*User, error) {
+func (s *userService) Update(ctx context.Context, user *User) (*User, error) {
 	sql := `
 		UPDATE users
 		SET email = $1,
@@ -98,7 +97,7 @@ func (p *DB) Update(ctx context.Context, user *User) (*User, error) {
 			WHERE id = $4
 	`
 
-	res, err := p.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.ID)
+	res, err := s.db.pool.Exec(ctx, sql, user.Email, user.Firstname, user.Lastname, user.ID)
 	if err != nil {
 		return nil, err
 	}
