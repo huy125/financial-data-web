@@ -15,7 +15,7 @@ import (
 	"github.com/hamba/logger/v2"
 	"github.com/hamba/pkg/v2/http/server"
 	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"

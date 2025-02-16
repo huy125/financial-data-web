@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 )
 
 type Store interface {

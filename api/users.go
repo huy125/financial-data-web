@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/api/mapper"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 )
 
 const requestTimeout = 5

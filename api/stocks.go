@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 )
 
 // StockMetadata represents the metadata of a stock.

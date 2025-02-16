@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/api/dto"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

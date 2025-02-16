@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 	"github.com/stretchr/testify/require"
 )
 
