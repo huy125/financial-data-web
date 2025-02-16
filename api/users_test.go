@@ -69,7 +69,11 @@ func (m *storeMock) ListMetrics(_ context.Context, limit, offset int) ([]store.M
 	return args.Get(0).([]store.Metric), args.Error(1)
 }
 
-func (m *storeMock) CreateStockMetric(_ context.Context, storeID, metricID uuid.UUID, value float64) (*store.StockMetric, error) {
+func (m *storeMock) CreateStockMetric(
+	_ context.Context,
+	storeID, metricID uuid.UUID,
+	value float64,
+) (*store.StockMetric, error) {
 	args := m.Called(storeID, metricID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

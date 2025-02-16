@@ -48,7 +48,6 @@ func (s *stockService) FindStockBySymbol(ctx context.Context, symbol string) (*S
 	return &stock, nil
 }
 
-
 func (s *stockService) CreateStockMetric(ctx context.Context, stockMetric StockMetric) (*StockMetric, error) {
 	sql := `
 		INSERT INTO stock_metric (stock_id, metric_id, value)

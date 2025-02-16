@@ -10,9 +10,9 @@ import (
 type Store struct {
 	db *DB
 
-	users	*userService
-	stocks	*stockService
-	metrics	*metricService
+	users   *userService
+	stocks  *stockService
+	metrics *metricService
 }
 
 func New(db *DB) *Store {
@@ -47,7 +47,11 @@ func (s *Store) FindStockBySymbol(ctx context.Context, symbol string) (*Stock, e
 	return s.stocks.FindStockBySymbol(ctx, symbol)
 }
 
-func (s *Store) CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*StockMetric, error) {
+func (s *Store) CreateStockMetric(
+	ctx context.Context,
+	stockID, metricID uuid.UUID,
+	value float64,
+) (*StockMetric, error) {
 	now := time.Now()
 	stockMetric := &StockMetric{
 		StockID:    stockID,

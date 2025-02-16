@@ -55,9 +55,9 @@ type AnnualReport struct {
 }
 
 type fetchResult struct {
-	overview     *OverviewMetadata
-	balanceSheet *BalanceSheetMetadata
-	overviewErr, balanceSheetErr          error
+	overview                     *OverviewMetadata
+	balanceSheet                 *BalanceSheetMetadata
+	overviewErr, balanceSheetErr error
 }
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
