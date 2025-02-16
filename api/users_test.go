@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/store"
@@ -160,7 +161,8 @@ func TestServer_CreateUserHandler(t *testing.T) {
 				).Return(test.wantUserModel, test.returnErr)
 			}
 
-			srv := api.New(testAPIKey, storeMock)
+			obsvr := observe.NewFake()
+			srv := api.New(testAPIKey, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -281,7 +283,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				).Return(test.wantUserModel, test.returnErr)
 			}
 
-			srv := api.New(testAPIKey, storeMock)
+			obsvr := observe.NewFake()
+			srv := api.New(testAPIKey, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -367,7 +370,8 @@ func TestServer_GetUserHandler(t *testing.T) {
 			storeMock := &storeMock{}
 			storeMock.On("Find", id).Return(test.wantUserModel, test.returnErr)
 
-			srv := api.New(testAPIKey, storeMock)
+			obsvr := observe.NewFake()
+			srv := api.New(testAPIKey, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })

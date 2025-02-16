@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -274,7 +275,7 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store
 	}
 
 	if overview != nil {
-		processOverviewMetrics(ctx, overview, metricMap, saveStockMetric)
+		s.processOverviewMetrics(ctx, overview, metricMap, saveStockMetric)
 	}
 
 	return updatedStockMetrics, nil
@@ -353,7 +354,7 @@ func processBalanceSheetMetrics(
 	}
 }
 
-func processOverviewMetrics(
+func (s *Server) processOverviewMetrics(
 	_ context.Context,
 	overview *OverviewMetadata,
 	metricMap map[string]store.Metric,
@@ -371,7 +372,7 @@ func processOverviewMetrics(
 		if extractor, exists := metricExtractors[name]; exists {
 			value, err := strconv.ParseFloat(extractor(overview), 64)
 			if err != nil {
-				log.Printf("failed to convert metric %s to float: %v", name, err)
+				s.log.Error("failed to convert metric to float", lctx.Error("error", err))
 			}
 			save(metricModel, value)
 		}
@@ -386,7 +387,7 @@ func (s *Server) saveStockMetric(
 	return func(metric store.Metric, value float64) {
 		savedMetric, err := s.store.CreateStockMetric(ctx, stock.ID, metric.ID, value)
 		if err != nil {
-			log.Printf("failed to save metric %s for stock %s: %v", metric.Name, stock.Symbol, err)
+			s.log.Error("failed to save metric", lctx.Str("metric", metric.Name), lctx.Error("error", err))
 			return
 		}
 		*updatedMetrics = append(*updatedMetrics, *savedMetric)

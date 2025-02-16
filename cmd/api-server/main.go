@@ -89,9 +89,9 @@ func runServer(c *cli.Context) error {
 		return err
 	}
 
-	store := store.New(db)
+	store := store.New(db, obsrv)
 	addr := net.JoinHostPort(host, port)
-	h := api.New(apiKey, store)
+	h := api.New(apiKey, store, obsrv)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,

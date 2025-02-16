@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hamba/cmd/v2/observe"
+	"github.com/hamba/logger/v2"
 )
 
 type Store struct {
@@ -13,11 +15,15 @@ type Store struct {
 	users   *userService
 	stocks  *stockService
 	metrics *metricService
+
+	log *logger.Logger
 }
 
-func New(db *DB) *Store {
+func New(db *DB, obsvr *observe.Observer) *Store {
 	store := &Store{
 		db: db,
+
+		log: obsvr.Log,
 	}
 
 	store.users = &userService{db: db}
