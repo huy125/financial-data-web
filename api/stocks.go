@@ -286,7 +286,6 @@ func (s *Server) combineStockData(
 ) (*OverviewMetadata, *BalanceSheetMetadata, error) {
 	const fetches = 2
 	resultCh := make(chan fetchResult, fetches)
-	defer close(resultCh)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -306,6 +305,7 @@ func (s *Server) combineStockData(
 	}()
 
 	wg.Wait()
+	close(resultCh)
 
 	var overview *OverviewMetadata
 	var balanceSheet *BalanceSheetMetadata
