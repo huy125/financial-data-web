@@ -122,39 +122,28 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	data, err := s.fetchStockOverview(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, fmt.Sprintf("Stock data not found: %v", err), http.StatusNotFound)
+			http.Error(w, "Stock data is not found", http.StatusNotFound)
 			return
 		}
 
-		http.Error(w, fmt.Sprintf("Could not fetch stock data: %v", err), http.StatusInternalServerError)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	_, err = s.updateStockMetrics(ctx, symbol)
 	if err != nil {
 		http.Error(w,
-			fmt.Sprintf("could not update stock metric: %v", err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("could not encode JSON: %v", err),
+			"Internal server error",
 			http.StatusInternalServerError,
 		)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(jsonData)
+	err = json.NewEncoder(w).Encode(data)
 	if err != nil {
-		http.Error(w,
-			fmt.Sprintf("error while writing response: %v", err),
-			http.StatusInternalServerError,
-		)
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
 	}
 }
 
