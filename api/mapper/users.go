@@ -29,15 +29,15 @@ func ToStoreUser(u *dto.UserDto) (*store.User, error) {
 
 	if u.ID == "" {
 		user.ID = uuid.New()
-		user.CreatedAt = &now
-		user.UpdatedAt = &now
+		user.CreatedAt = now
+		user.UpdatedAt = now
 	} else {
 		id, err := uuid.Parse(u.ID)
 		if err != nil {
 			return nil, err
 		}
 		user.ID = id
-		user.UpdatedAt = &now
+		user.UpdatedAt = now
 	}
 
 	return user, nil

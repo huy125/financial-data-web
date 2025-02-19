@@ -32,6 +32,7 @@ type TimeSeriesDaily struct {
 	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
+// OverviewMetada represents the overall financial information of a stock.
 type OverviewMetadata struct {
 	Symbol                    string `json:"symbol"`
 	MarketCapitalization      string `json:"MarketCapitalization"`
@@ -237,7 +238,7 @@ func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, erro
 	}
 
 	if totalEquity == 0 {
-		return 0, errors.New("cannot divide by zero")
+		return 0, errors.New("total equity should not be zero")
 	}
 
 	ratio := totalLiabilities / totalEquity

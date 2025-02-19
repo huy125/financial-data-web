@@ -21,14 +21,14 @@ type StockMetric struct {
 	StockID    uuid.UUID
 	MetricID   uuid.UUID
 	Value      float64
-	RecordedAt *time.Time
+	RecordedAt time.Time
 }
 
 type stockService struct {
 	db *DB
 }
 
-func (s *stockService) FindStockBySymbol(ctx context.Context, symbol string) (*Stock, error) {
+func (s *stockService) Find(ctx context.Context, symbol string) (*Stock, error) {
 	sql := "SELECT id, symbol, company FROM stock WHERE symbol = $1"
 	var stock Stock
 

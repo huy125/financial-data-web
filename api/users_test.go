@@ -25,7 +25,7 @@ type storeMock struct {
 	mock.Mock
 }
 
-func (m *storeMock) Create(_ context.Context, user *store.User) (*store.User, error) {
+func (m *storeMock) CreateUser(_ context.Context, user *store.User) (*store.User, error) {
 	args := m.Called(user)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -33,12 +33,12 @@ func (m *storeMock) Create(_ context.Context, user *store.User) (*store.User, er
 	return args.Get(0).(*store.User), args.Error(1)
 }
 
-func (m *storeMock) List(_ context.Context, limit, offset int) ([]store.User, error) {
+func (m *storeMock) ListUsers(_ context.Context, limit, offset int) ([]store.User, error) {
 	args := m.Called(limit, offset)
 	return args.Get(0).([]store.User), args.Error(1)
 }
 
-func (m *storeMock) Find(_ context.Context, id uuid.UUID) (*store.User, error) {
+func (m *storeMock) FindUser(_ context.Context, id uuid.UUID) (*store.User, error) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -47,7 +47,7 @@ func (m *storeMock) Find(_ context.Context, id uuid.UUID) (*store.User, error) {
 	return args.Get(0).(*store.User), args.Error(1)
 }
 
-func (m *storeMock) Update(_ context.Context, user *store.User) (*store.User, error) {
+func (m *storeMock) UpdateUser(_ context.Context, user *store.User) (*store.User, error) {
 	args := m.Called(user)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -108,8 +108,8 @@ func TestServer_CreateUserHandler(t *testing.T) {
 				Email:     "test@example.com",
 				Firstname: "Alice",
 				Lastname:  "Smith",
-				CreatedAt: &now,
-				UpdatedAt: &now,
+				CreatedAt: now,
+				UpdatedAt: now,
 			},
 			returnErr: nil,
 
@@ -151,7 +151,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			storeMock := &storeMock{}
 			if test.wantUserDto != nil {
-				storeMock.On("Create",
+				storeMock.On("CreateUser",
 					mock.MatchedBy(func(u *store.User) bool {
 						return u.Email == test.wantUserDto.Email &&
 							u.Firstname == test.wantUserDto.Firstname &&
@@ -195,8 +195,6 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 	t.Parallel()
 
 	id := uuid.New()
-	createdAt := time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC)
-	updatedAt := time.Now()
 	tests := []struct {
 		name string
 
@@ -219,8 +217,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				Email:     "test@example.com",
 				Firstname: "Bob",
 				Lastname:  "Smith",
-				CreatedAt: &createdAt,
-				UpdatedAt: &updatedAt,
+				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+				UpdatedAt: time.Now(),
 			},
 			returnErr: nil,
 
@@ -271,7 +269,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			storeMock := &storeMock{}
 			if test.wantUserDto != nil {
-				storeMock.On("Update",
+				storeMock.On("UpdateUser",
 					mock.MatchedBy(func(u *store.User) bool {
 						return u.ID.String() == test.wantUserDto.ID &&
 							u.Email == test.wantUserDto.Email &&
@@ -316,8 +314,6 @@ func TestServer_GetUserHandler(t *testing.T) {
 	t.Parallel()
 
 	id := uuid.New()
-	createdAt := time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC)
-	updatedAt := time.Now()
 	tests := []struct {
 		name string
 
@@ -335,8 +331,8 @@ func TestServer_GetUserHandler(t *testing.T) {
 				Email:     "test@example.com",
 				Firstname: "Bob",
 				Lastname:  "Smith",
-				CreatedAt: &createdAt,
-				UpdatedAt: &updatedAt,
+				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+				UpdatedAt: time.Now(),
 			},
 			returnErr: nil,
 
@@ -365,7 +361,7 @@ func TestServer_GetUserHandler(t *testing.T) {
 			t.Parallel()
 
 			storeMock := &storeMock{}
-			storeMock.On("Find", id).Return(test.wantUserModel, test.returnErr)
+			storeMock.On("FindUser", id).Return(test.wantUserModel, test.returnErr)
 
 			srv := api.New(testAPIKey, storeMock)
 

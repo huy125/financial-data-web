@@ -17,15 +17,13 @@ func BenchmarkGetUserHandler(b *testing.B) {
 	id := uuid.New()
 
 	storeMock := &storeMock{}
-	createdAt := time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC)
-	updatedAt := time.Now()
 	wantUserModel := &store.User{
 		ID:        id,
 		Email:     "test@example.com",
 		Firstname: "Bob",
 		Lastname:  "Smith",
-		CreatedAt: &createdAt,
-		UpdatedAt: &updatedAt,
+		CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+		UpdatedAt: time.Now(),
 	}
 	storeMock.On("Find", id).Return(wantUserModel, nil)
 

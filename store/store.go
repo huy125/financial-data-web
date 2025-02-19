@@ -27,24 +27,24 @@ func New(db *DB) *Store {
 	return store
 }
 
-func (s *Store) Create(ctx context.Context, user *User) (*User, error) {
+func (s *Store) CreateUser(ctx context.Context, user *User) (*User, error) {
 	return s.users.Create(ctx, user)
 }
 
-func (s *Store) List(ctx context.Context, limit, offset int) ([]User, error) {
+func (s *Store) ListUsers(ctx context.Context, limit, offset int) ([]User, error) {
 	return s.users.List(ctx, limit, offset)
 }
 
-func (s *Store) Find(ctx context.Context, id uuid.UUID) (*User, error) {
+func (s *Store) FindUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.users.Find(ctx, id)
 }
 
-func (s *Store) Update(ctx context.Context, user *User) (*User, error) {
+func (s *Store) UpdateUser(ctx context.Context, user *User) (*User, error) {
 	return s.users.Update(ctx, user)
 }
 
 func (s *Store) FindStockBySymbol(ctx context.Context, symbol string) (*Stock, error) {
-	return s.stocks.FindStockBySymbol(ctx, symbol)
+	return s.stocks.Find(ctx, symbol)
 }
 
 func (s *Store) CreateStockMetric(
@@ -52,12 +52,11 @@ func (s *Store) CreateStockMetric(
 	stockID, metricID uuid.UUID,
 	value float64,
 ) (*StockMetric, error) {
-	now := time.Now()
 	stockMetric := &StockMetric{
 		StockID:    stockID,
 		MetricID:   metricID,
 		Value:      value,
-		RecordedAt: &now,
+		RecordedAt: time.Now(),
 	}
 	return s.stocks.CreateStockMetric(ctx, *stockMetric)
 }

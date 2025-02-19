@@ -42,7 +42,7 @@ func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	createdUser, err := s.store.Create(ctx, user)
+	createdUser, err := s.store.CreateUser(ctx, user)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
@@ -94,7 +94,7 @@ func (s *Server) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	updatedUser, err := s.store.Update(ctx, user)
+	updatedUser, err := s.store.UpdateUser(ctx, user)
 	if err != nil {
 		s.handleStoreError(w, err)
 		return
@@ -125,7 +125,7 @@ func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	user, err := s.store.Find(ctx, uuid)
+	user, err := s.store.FindUser(ctx, uuid)
 	if err != nil {
 		s.handleStoreError(w, err)
 		return

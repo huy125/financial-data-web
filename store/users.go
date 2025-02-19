@@ -14,8 +14,8 @@ type User struct {
 	Email     string
 	Firstname string
 	Lastname  string
-	CreatedAt *time.Time
-	UpdatedAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type userService struct {
