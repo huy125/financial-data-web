@@ -104,12 +104,14 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			wantUserDto: &dto.UserDto{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel: &store.User{
-				ID:        uuid.MustParse("ab678e01-00ee-4e4c-acfc-6dc0b68fee20"),
+				Model: store.Model{
+					ID:        uuid.MustParse("ab678e01-00ee-4e4c-acfc-6dc0b68fee20"),
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
 				Email:     "test@example.com",
 				Firstname: "Alice",
 				Lastname:  "Smith",
-				CreatedAt: now,
-				UpdatedAt: now,
 			},
 			returnErr: nil,
 
@@ -213,12 +215,14 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			wantUserDto: &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
 			wantUserModel: &store.User{
-				ID:        id,
+				Model: store.Model{
+					ID:        id,
+					CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+					UpdatedAt: time.Now(),
+				},
 				Email:     "test@example.com",
 				Firstname: "Bob",
 				Lastname:  "Smith",
-				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
-				UpdatedAt: time.Now(),
 			},
 			returnErr: nil,
 
@@ -327,12 +331,14 @@ func TestServer_GetUserHandler(t *testing.T) {
 			name: "returns user successfully",
 
 			wantUserModel: &store.User{
-				ID:        id,
+				Model: store.Model{
+					ID:        id,
+					CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
+					UpdatedAt: time.Now(),
+				},
 				Email:     "test@example.com",
 				Firstname: "Bob",
 				Lastname:  "Smith",
-				CreatedAt: time.Date(2024, 11, 24, 21, 58, 0o0, 0o0, time.UTC),
-				UpdatedAt: time.Now(),
 			},
 			returnErr: nil,
 

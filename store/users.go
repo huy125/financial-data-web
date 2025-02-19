@@ -9,13 +9,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type Model struct {
+	ID uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type User struct {
-	ID        uuid.UUID
+	Model
+
 	Email     string
 	Firstname string
 	Lastname  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 type userService struct {
