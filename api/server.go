@@ -5,14 +5,17 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	model "github.com/huy125/financial-data-web/api/store/models"
+	"github.com/huy125/financial-data-web/store"
 )
 
-type UserStore interface {
-	Create(ctx context.Context, user *model.User) (*model.User, error)
-	List(ctx context.Context, limit, offset int) ([]model.User, error)
-	Find(ctx context.Context, id uuid.UUID) (*model.User, error)
-	Update(ctx context.Context, user *model.User) (*model.User, error)
+type Store interface {
+	CreateUser(ctx context.Context, user *store.User) (*store.User, error)
+	ListUsers(ctx context.Context, limit, offset int) ([]store.User, error)
+	FindUser(ctx context.Context, id uuid.UUID) (*store.User, error)
+	UpdateUser(ctx context.Context, user *store.User) (*store.User, error)
+	FindStockBySymbol(ctx context.Context, symbol string) (*store.Stock, error)
+	ListMetrics(ctx context.Context, limit, offset int) ([]store.Metric, error)
+	CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*store.StockMetric, error)
 }
 
 // Server is the API server.
@@ -20,11 +23,11 @@ type Server struct {
 	h http.Handler
 
 	apiKey string
-	store  UserStore
+	store  Store
 }
 
 // New creates a new API server.
-func New(apiKey string, store UserStore) *Server {
+func New(apiKey string, store Store) *Server {
 	s := &Server{
 		apiKey: apiKey,
 		store:  store,
@@ -46,12 +49,11 @@ func (s *Server) routes() http.Handler {
 
 	mux.HandleFunc("GET /", s.HelloServerHandler)
 	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
+	mux.HandleFunc("GET /stocks/analysis", s.GetStockAnalysisBySymbolHandler)
 
-	userHandler := &UserHandler{store: s.store}
-	mux.HandleFunc("POST /users", userHandler.CreateUserHandler)
-
-	mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUserHandler)
-	mux.HandleFunc("GET /users/{id}", userHandler.GetUserHandler)
+	mux.HandleFunc("POST /users", s.CreateUserHandler)
+	mux.HandleFunc("PUT /users/{id}", s.UpdateUserHandler)
+	mux.HandleFunc("GET /users/{id}", s.GetUserHandler)
 
 	return mux
 }

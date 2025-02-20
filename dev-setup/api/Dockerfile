@@ -12,6 +12,7 @@ RUN go mod download
 
 COPY cmd/ ./cmd
 COPY api/ ./api
+COPY store/ ./store
 
 RUN go build -o server ./cmd/api-server
 

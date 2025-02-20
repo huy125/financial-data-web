@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/hamba/cmd/v2"
@@ -16,7 +15,7 @@ import (
 	"github.com/hamba/logger/v2"
 	"github.com/hamba/pkg/v2/http/server"
 	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -84,12 +83,13 @@ func runServer(c *cli.Context) error {
 		return nil
 	}
 
-	store, err := newStore(dsn)
+	db, err := store.NewDB(store.WithDSN(dsn))
 	if err != nil {
 		obsrv.Log.Error("Could not set up store")
 		return err
 	}
 
+	store := store.New(db)
 	addr := net.JoinHostPort(host, port)
 	h := api.New(apiKey, store)
 	server := server.GenericServer[context.Context]{
@@ -108,15 +108,4 @@ func runServer(c *cli.Context) error {
 	obsrv.Log.Info("Server terminated")
 
 	return nil
-}
-
-func newStore(dsn string) (api.UserStore, error) {
-	switch {
-	case dsn == "":
-		return store.NewInMemory()
-	case strings.HasPrefix(dsn, "postgres"):
-		return store.NewPostgres(store.WithDSN(dsn))
-	default:
-		return nil, errors.New("unsupported store")
-	}
 }

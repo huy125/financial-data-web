@@ -11,17 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/api/mapper"
-	"github.com/huy125/financial-data-web/api/store"
+	"github.com/huy125/financial-data-web/store"
 )
 
 const requestTimeout = 5
 
-type UserHandler struct {
-	store UserStore
-}
-
 // CreateUserHandler creates a new user.
-func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var userDto dto.UserDto
 	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -46,7 +42,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	createdUser, err := h.store.Create(ctx, user)
+	createdUser, err := s.store.CreateUser(ctx, user)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
@@ -62,7 +58,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // UpdateUserHandler updates the existing user.
-func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Id is required", http.StatusBadRequest)
@@ -98,9 +94,9 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	updatedUser, err := h.store.Update(ctx, user)
+	updatedUser, err := s.store.UpdateUser(ctx, user)
 	if err != nil {
-		h.handleStoreError(w, err)
+		s.handleStoreError(w, err)
 		return
 	}
 
@@ -113,7 +109,7 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetUserHandler gets an existing user.
-func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		http.Error(w, "Id is required", http.StatusBadRequest)
@@ -129,9 +125,9 @@ func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	user, err := h.store.Find(ctx, uuid)
+	user, err := s.store.FindUser(ctx, uuid)
 	if err != nil {
-		h.handleStoreError(w, err)
+		s.handleStoreError(w, err)
 		return
 	}
 
@@ -143,7 +139,7 @@ func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UserHandler) handleStoreError(w http.ResponseWriter, err error) {
+func (s *Server) handleStoreError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		http.Error(w, "User not found", http.StatusNotFound)
