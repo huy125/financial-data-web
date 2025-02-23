@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
+	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -35,7 +36,7 @@ func New(apiKey string, store Store, obsrv *observe.Observer) *Server {
 	s := &Server{
 		apiKey: apiKey,
 		store:  store,
-		log:    obsrv.Log,
+		log:    obsrv.Log.With(lctx.Str("component", "api")),
 	}
 
 	s.h = s.routes()
