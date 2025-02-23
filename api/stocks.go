@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -160,10 +160,6 @@ func (s *Server) fetchBalanceSheet(ctx context.Context, symbol string) (*Balance
 }
 
 func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, apiKey string) (*T, error) {
-	if apiKey == "" {
-		log.Fatalf("ALPHA_VANTAGE_API_KEY environment variable is not set")
-	}
-
 	baseURL := &url.URL{
 		Scheme: "https",
 		Host:   "www.alphavantage.co",
@@ -260,11 +256,11 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store
 	saveStockMetric := s.saveStockMetric(ctx, stock, &updatedStockMetrics)
 
 	if balanceSheet != nil {
-		processBalanceSheetMetrics(ctx, balanceSheet, metricMap, saveStockMetric, symbol)
+		s.processBalanceSheetMetrics(ctx, balanceSheet, metricMap, saveStockMetric)
 	}
 
 	if overview != nil {
-		processOverviewMetrics(ctx, overview, metricMap, saveStockMetric)
+		s.processOverviewMetrics(ctx, overview, metricMap, saveStockMetric)
 	}
 
 	return updatedStockMetrics, nil
@@ -326,24 +322,23 @@ func (s *Server) combineStockData(
 	return overview, balanceSheet, nil
 }
 
-func processBalanceSheetMetrics(
+func (s *Server) processBalanceSheetMetrics(
 	_ context.Context,
 	balanceSheet *BalanceSheetMetadata,
 	metricMap map[string]store.Metric,
 	save func(store.Metric, float64),
-	symbol string,
 ) {
 	if metric, ok := metricMap["Debt/Equity Ratio"]; ok {
 		value, err := calculateDebtEquityRatio(balanceSheet)
 		if err != nil {
-			log.Printf("failed to calculate Debt/Equity Ratio for stock %s: %v", symbol, err)
+			s.log.Error("failed to calculate Debt/Equity Ratio for", lctx.Error("error", err))
 			return
 		}
 		save(metric, value)
 	}
 }
 
-func processOverviewMetrics(
+func (s *Server) processOverviewMetrics(
 	_ context.Context,
 	overview *OverviewMetadata,
 	metricMap map[string]store.Metric,
@@ -361,7 +356,7 @@ func processOverviewMetrics(
 		if extractor, exists := metricExtractors[name]; exists {
 			value, err := strconv.ParseFloat(extractor(overview), 64)
 			if err != nil {
-				log.Printf("failed to convert metric %s to float: %v", name, err)
+				s.log.Error("failed to convert metric to float", lctx.Error("error", err))
 			}
 			save(metricModel, value)
 		}
@@ -376,7 +371,7 @@ func (s *Server) saveStockMetric(
 	return func(metric store.Metric, value float64) {
 		savedMetric, err := s.store.CreateStockMetric(ctx, stock.ID, metric.ID, value)
 		if err != nil {
-			log.Printf("failed to save metric %s for stock %s: %v", metric.Name, stock.Symbol, err)
+			s.log.Error("failed to save metric", lctx.Str("metric", metric.Name), lctx.Error("error", err))
 			return
 		}
 		*updatedMetrics = append(*updatedMetrics, *savedMetric)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/store"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,8 @@ func BenchmarkGetUserHandler(b *testing.B) {
 	}
 	storeMock.On("Find", id).Return(wantUserModel, nil)
 
-	srv := api.New(testAPIKey, storeMock)
+	obsvr := observe.NewFake()
+	srv := api.New(testAPIKey, storeMock, obsvr)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })
