@@ -1,5 +1,5 @@
-## STOCK ANALYSIS FLOW
-
+# STOCK ANALYSIS FLOW
+## Flowchart
 ```mermaid
 flowchart LR
     Start --> ExternalFetching(Retrieving external data)
@@ -10,7 +10,8 @@ flowchart LR
     Analysis --> Recommendation(Generate recommendation)
     Recommendation --> End
 ```
-
+## Description
+This document represents how the stock analysis works in general
 ### 1️⃣ Fetch Stock Data
 
 Retrieve Stock Overview & Balance Sheet from AlphaVantage.
