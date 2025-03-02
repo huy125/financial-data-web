@@ -88,6 +88,18 @@ func (m *storeMock) FindLastestStockMetrics(_ context.Context, stockID uuid.UUID
 	return args.Get(0).([]store.LatestStockMetric), args.Error(1)
 }
 
+func (m *storeMock) CreateAnalysis(
+	_ context.Context,
+	userID, stockID uuid.UUID,
+	score float64,
+) (*store.Analysis, error) {
+	args := m.Called(userID, stockID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.Analysis), args.Error(1)
+}
+
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
 
