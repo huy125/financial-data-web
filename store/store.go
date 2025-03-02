@@ -7,12 +7,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// Store manages the database layer of applications.
 type Store struct {
 	db *DB
 
-	users   *userService
-	stocks  *stockService
-	metrics *metricService
+	users    *userService
+	stocks   *stockService
+	metrics  *metricService
+	analyses *analysisService
 }
 
 func New(db *DB) *Store {
@@ -23,6 +25,7 @@ func New(db *DB) *Store {
 	store.users = &userService{db: db}
 	store.stocks = &stockService{db: db}
 	store.metrics = &metricService{db: db}
+	store.analyses = &analysisService{db: db}
 
 	return store
 }
@@ -67,4 +70,15 @@ func (s *Store) ListMetrics(ctx context.Context, limit, offset int) ([]Metric, e
 
 func (s *Store) FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]LatestStockMetric, error) {
 	return s.stocks.FindLastestStockMetrics(ctx, stockID)
+}
+
+func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, score float64) (*Analysis, error) {
+	analysis := &Analysis{
+		ID:        uuid.New(),
+		UserID:    userID,
+		StockID:   stockID,
+		Score:     score,
+		CreatedAt: time.Now(),
+	}
+	return s.analyses.CreateAnalysis(ctx, *analysis)
 }

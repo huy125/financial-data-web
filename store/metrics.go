@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Metric represents the metric model
+// Metric represents the metric schema in database.
 type Metric struct {
 	ID          uuid.UUID
 	Name        string

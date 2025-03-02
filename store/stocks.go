@@ -25,10 +25,10 @@ type StockMetric struct {
 	RecordedAt time.Time
 }
 
-// LatestStockMetric represents the most recent stock metric schema
+// LatestStockMetric represents the most recent stock metric schema.
 type LatestStockMetric struct {
 	MetricName string
-	Value float64
+	Value      float64
 	RecordedAt time.Time
 }
 
@@ -92,7 +92,7 @@ func (s *stockService) FindLastestStockMetrics(ctx context.Context, stockID uuid
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var stockMetrics []LatestStockMetric
 	for rows.Next() {
 		var stockMetric LatestStockMetric
