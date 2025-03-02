@@ -19,6 +19,7 @@ type Store interface {
 	FindStockBySymbol(ctx context.Context, symbol string) (*store.Stock, error)
 	ListMetrics(ctx context.Context, limit, offset int) ([]store.Metric, error)
 	CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*store.StockMetric, error)
+	FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error)
 }
 
 // Server is the API server.

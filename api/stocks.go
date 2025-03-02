@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -55,10 +56,76 @@ type AnnualReport struct {
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
 }
 
+// ThresholdRange represents the lowest, highest value and score of each range of threshold.
+type ThresholdRange struct {
+	Min float64
+	Max float64
+	Score float64
+}
+
+// ScoringRules reprepsents threshold range and weigh of each metrics.
+type ScoringRule struct {
+	Ranges []ThresholdRange
+	Weight	float64
+}
+
 type fetchResult struct {
 	overview                     *OverviewMetadata
 	balanceSheet                 *BalanceSheetMetadata
 	overviewErr, balanceSheetErr error
+}
+
+var scoringRules = map[string]ScoringRule{
+	"P/E Ratio": {
+		Ranges: []ThresholdRange{
+			{Min: 0, Max: 10, Score: 10},
+			{Min: 10, Max: 20, Score: 7},
+			{Min: 20, Max: 30, Score: 5},
+			{Min: 30, Max: math.Inf(1), Score: 3},
+		},
+		Weight: 0.16,
+	},
+	"EPS": {
+		Ranges: []ThresholdRange{
+			{Min: 5, Max: math.Inf(1), Score: 10},
+			{Min: 2, Max: 5, Score: 7},
+			{Min: 0, Max: 2, Score: 3},
+		},
+		Weight: 0.12,
+	},
+	"Revenue Growth": {
+		Ranges: []ThresholdRange{
+			{Min: 0.1, Max: math.Inf(1), Score: 10},
+			{Min: 0, Max: 0.1, Score: 7},
+			{Min: math.Inf(-1), Max: 0, Score: 3},
+		},
+		Weight: 0.24,
+	},
+	"Debt/Equity Ratio": {
+		Ranges: []ThresholdRange{
+			{Min: 0, Max: 0.5, Score: 10},
+			{Min: 0.5, Max: 1.0, Score: 7},
+			{Min: 1.0, Max: math.Inf(1), Score: 3},
+		},
+		Weight: 0.16,
+	},
+	"Dividend Yield": {
+		Ranges: []ThresholdRange{
+			{Min: 0.05, Max: math.Inf(1), Score: 10},
+			{Min: 0.03, Max: 0.05, Score: 7},
+			{Min: 0, Max: 0.03, Score: 3},
+		},
+		Weight: 0.08,
+	},
+	"Market Cap": {
+		Ranges: []ThresholdRange{
+			{Min: 100000000000, Max: math.Inf(1), Score: 10}, // Large Cap ($100B+)
+			{Min: 20000000000, Max: 100000000000, Score: 7},  // Mid Cap ($20B-$100B)
+			{Min: 2000000000, Max: 20000000000, Score: 5},    // Small Cap ($2B-$20B)
+			{Min: 0, Max: 2000000000, Score: 3},              // Micro Cap (<$2B)
+		},
+		Weight: 0.24,
+	},
 }
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
@@ -122,6 +189,17 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	data, err := s.fetchStockOverview(ctx, symbol)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "External data is not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	stock, err := s.store.FindStockBySymbol(ctx, symbol)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
 			http.Error(w, "Stock data is not found", http.StatusNotFound)
 			return
 		}
@@ -130,7 +208,19 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	_, err = s.updateStockMetrics(ctx, symbol)
+	score, err := s.scoreStock(ctx, stock);
+	if err != nil {
+		s.log.Error("Failed to scoring stock", lctx.Error("error", err))
+		http.Error(w,
+			"Internal server error",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	// Save score to database
+
+	_, err = s.updateStockMetrics(ctx, stock)
 	if err != nil {
 		http.Error(w,
 			"Internal server error",
@@ -230,15 +320,7 @@ func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, erro
 	return ratio, nil
 }
 
-func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store.StockMetric, error) {
-	stock, err := s.store.FindStockBySymbol(ctx, symbol)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, errors.New("stock not found")
-		}
-		return nil, fmt.Errorf("error while fetching stock by symbol: %w", err)
-	}
-
+func (s *Server) updateStockMetrics(ctx context.Context, stock *store.Stock) ([]store.StockMetric, error) {
 	const maxNumMetric = 50
 	const offset = 0
 	metrics, err := s.store.ListMetrics(ctx, maxNumMetric, offset)
@@ -247,7 +329,7 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store
 	}
 
 	metricMap := buildMetricMap(metrics)
-	overview, balanceSheet, fetchErr := s.combineStockData(ctx, symbol)
+	overview, balanceSheet, fetchErr := s.combineStockData(ctx, stock.Symbol)
 	if fetchErr != nil {
 		return nil, fetchErr
 	}
@@ -384,4 +466,30 @@ func buildMetricMap(metrics []store.Metric) map[string]store.Metric {
 		metricMap[metric.Name] = metric
 	}
 	return metricMap
+}
+
+func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, error) {
+	totalScore := 0.0
+
+	stockMetrics, err := s.store.FindLastestStockMetrics(ctx, stock.ID)
+	if err != nil {
+		return 0.0, err
+	}
+
+	for _, stockMetric := range stockMetrics {
+		if rule, exists := scoringRules[stockMetric.MetricName]; exists {
+			totalScore += calculateScore(stockMetric.Value, rule)
+		}
+	}
+
+	return totalScore, nil
+}
+
+func calculateScore(value float64, rule ScoringRule) float64 {
+	for _, r := range rule.Ranges {
+		if value >= r.Min && value < r.Max {
+			return float64(r.Score) * rule.Weight
+		}
+	}
+	return 0
 }
