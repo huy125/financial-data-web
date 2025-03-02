@@ -20,6 +20,7 @@ type Store interface {
 	ListMetrics(ctx context.Context, limit, offset int) ([]store.Metric, error)
 	CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*store.StockMetric, error)
 	FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error)
+	CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, score float64) (*store.Analysis, error)
 }
 
 // Server is the API server.
