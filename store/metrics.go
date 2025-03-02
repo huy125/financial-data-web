@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Metric represents the metric model
 type Metric struct {
 	ID          uuid.UUID
 	Name        string
