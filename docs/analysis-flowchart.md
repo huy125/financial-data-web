@@ -1,4 +1,4 @@
-# STOCK ANALYSIS FLOW
+# Stock Analysis Flow 🔍
 ## Flowchart
 ```mermaid
 flowchart LR
