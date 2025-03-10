@@ -20,7 +20,7 @@ type analysisService struct {
 	db *DB
 }
 
-func (s *analysisService) CreateAnalysis(ctx context.Context, analysis Analysis) (*Analysis, error) {
+func (s *analysisService) CreateAnalysis(ctx context.Context, analysis *Analysis) (*Analysis, error) {
 	sql := `
 		INSERT INTO analysis (user_id, stock_id, score)
 		VALUES ($1, $2, $3)
@@ -36,5 +36,5 @@ func (s *analysisService) CreateAnalysis(ctx context.Context, analysis Analysis)
 		return nil, err
 	}
 
-	return &analysis, nil
+	return analysis, nil
 }

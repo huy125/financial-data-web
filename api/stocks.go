@@ -84,6 +84,13 @@ const (
 	veryLowScore = 3
 )
 
+const (
+	StrongBuy = 80
+	Buy       = 60
+	Hold     = 40
+	Sell      = 20
+)
+
 // GetStockBySymbolHandler fetches stock data for the given symbol.
 func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
@@ -153,7 +160,7 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	_, err = s.updateStockMetrics(ctx, stock)
+	stockMetrics, err := s.updateStockMetrics(ctx, stock)
 	if err != nil {
 		http.Error(w,
 			"Internal server error",
@@ -172,6 +179,9 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	action := getAction(score);
+	confidenceLevel := calculateConfidenceLevel(stockMetrics);
+
 	// A temporary userID while waiting authentification system
 	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e")
 	analysis, err := s.store.CreateAnalysis(ctx, userID, stock.ID, score)
@@ -183,6 +193,9 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		)
 		return
 	}
+
+	reason := ""
+	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, reason)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(mapper.ToAPIAnalysis(analysis))
@@ -547,4 +560,43 @@ func getMarketCapRule() ScoringRule {
 
 func newScoringRule(weight float64, ranges []ThresholdRange) ScoringRule {
 	return ScoringRule{Weight: weight, Ranges: ranges}
+}
+
+func getAction(score float64) string {
+	switch {
+	case score >= StrongBuy:
+		return "Strong Buy"
+	case score >= Buy:
+		return "Buy"
+	case score >= Hold:
+		return "Hold"
+	case score >= Sell:
+		return "Sell"
+	default:
+		return "Strong Sell"
+	}
+}
+
+func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
+	totalMetrics := len(stockMetrics)
+	if totalMetrics == 0 {
+		return 0
+	}
+
+	varianceSum := 0.0
+	averageScore := 0.0
+
+	for _, metric := range stockMetrics {
+		averageScore += metric.Value
+	}
+
+	averageScore /= float64(totalMetrics)
+
+	for _, metric := range stockMetrics {
+		varianceSum += math.Pow(metric.Value-averageScore, 2)
+	}
+
+	variance := varianceSum / float64(totalMetrics)
+	confidence := 100 - math.Min(variance*10, 100) // Normalize to a 0-100 range
+	return confidence
 }
