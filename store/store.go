@@ -15,6 +15,7 @@ type Store struct {
 	stocks   *stockService
 	metrics  *metricService
 	analyses *analysisService
+	recommendations *recommendationService
 }
 
 func New(db *DB) *Store {
@@ -26,6 +27,7 @@ func New(db *DB) *Store {
 	store.stocks = &stockService{db: db}
 	store.metrics = &metricService{db: db}
 	store.analyses = &analysisService{db: db}
+	store.recommendations = &recommendationService{db: db}
 
 	return store
 }
@@ -80,5 +82,18 @@ func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, s
 		Score:     score,
 		CreatedAt: time.Now(),
 	}
-	return s.analyses.CreateAnalysis(ctx, *analysis)
+	return s.analyses.CreateAnalysis(ctx, analysis)
+}
+
+func (s *Store) CreateRecommendation(ctx context.Context, analysisID uuid.UUID, action Action, confidenceLevel float64,reason string) (*Recommendation, error) {
+	recommendation := &Recommendation{
+		ID: uuid.New(),
+		AnalysisID: analysisID,
+		Action: action,
+		ConfidenceLevel: confidenceLevel,
+		Reason: reason,
+		CreatedAt: time.Now(),
+	}
+
+	return s.recommendations.Create(ctx, recommendation)
 }
