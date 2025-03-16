@@ -85,10 +85,10 @@ const (
 )
 
 const (
-	StrongBuy = 80
-	Buy       = 60
-	Hold     = 40
-	Sell      = 20
+	StrongBuy = 8
+	Buy       = 6
+	Hold      = 4
+	Sell      = 2
 )
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
@@ -179,8 +179,8 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	action := getAction(score);
-	confidenceLevel := calculateConfidenceLevel(stockMetrics);
+	action := getAction(score)
+	confidenceLevel := calculateConfidenceLevel(stockMetrics)
 
 	// A temporary userID while waiting authentification system
 	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e")
@@ -196,9 +196,17 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 
 	reason := ""
 	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, reason)
+	if err != nil {
+		s.log.Error("Failed to create recommendation", lctx.Error("error", err))
+		http.Error(w,
+			"Internal server error",
+			http.StatusInternalServerError,
+		)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(mapper.ToAPIAnalysis(analysis))
+	err = json.NewEncoder(w).Encode(mapper.ToAPIRecommendation(recommendation))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
@@ -562,18 +570,18 @@ func newScoringRule(weight float64, ranges []ThresholdRange) ScoringRule {
 	return ScoringRule{Weight: weight, Ranges: ranges}
 }
 
-func getAction(score float64) string {
+func getAction(score float64) store.Action {
 	switch {
 	case score >= StrongBuy:
-		return "Strong Buy"
+		return store.StrongBuy
 	case score >= Buy:
-		return "Buy"
+		return store.Buy
 	case score >= Hold:
-		return "Hold"
+		return store.Hold
 	case score >= Sell:
-		return "Sell"
+		return store.Sell
 	default:
-		return "Strong Sell"
+		return store.StrongSell
 	}
 }
 
@@ -583,20 +591,43 @@ func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
 		return 0
 	}
 
-	varianceSum := 0.0
-	averageScore := 0.0
+	normalizedMetrics := minMaxNormalizeMetrics(stockMetrics)
 
-	for _, metric := range stockMetrics {
-		averageScore += metric.Value
+	var sum, varianceSum float64
+	for _, value := range normalizedMetrics {
+		sum += value
 	}
+	mean := sum / float64(totalMetrics)
 
-	averageScore /= float64(totalMetrics)
-
-	for _, metric := range stockMetrics {
-		varianceSum += math.Pow(metric.Value-averageScore, 2)
+	for _, value := range normalizedMetrics {
+		varianceSum += math.Pow(value-mean, 2)
 	}
+	sampleVariance := varianceSum / float64(totalMetrics-1)
 
-	variance := varianceSum / float64(totalMetrics)
-	confidence := 100 - math.Min(variance*10, 100) // Normalize to a 0-100 range
+	stdDeviation := math.Sqrt(sampleVariance)
+	confidence := 100 - math.Min(stdDeviation*100, 100)
+
 	return confidence
+}
+
+func minMaxNormalizeMetrics(stockMetrics []store.StockMetric) []float64 {
+	minValue := stockMetrics[0].Value
+	maxValue := stockMetrics[0].Value
+
+	for _, metric := range stockMetrics {
+		if metric.Value < minValue {
+			minValue = metric.Value
+		}
+		if metric.Value > maxValue {
+			maxValue = metric.Value
+		}
+	}
+
+	// Normalize each metric using Min-Max formula
+	normalizedValues := make([]float64, len(stockMetrics))
+	for i, metric := range stockMetrics {
+		normalizedValues[i] = (metric.Value - minValue) / (maxValue - minValue)
+	}
+
+	return normalizedValues
 }

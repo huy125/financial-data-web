@@ -11,10 +11,10 @@ import (
 type Store struct {
 	db *DB
 
-	users    *userService
-	stocks   *stockService
-	metrics  *metricService
-	analyses *analysisService
+	users           *userService
+	stocks          *stockService
+	metrics         *metricService
+	analyses        *analysisService
 	recommendations *recommendationService
 }
 
@@ -85,14 +85,14 @@ func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, s
 	return s.analyses.CreateAnalysis(ctx, analysis)
 }
 
-func (s *Store) CreateRecommendation(ctx context.Context, analysisID uuid.UUID, action Action, confidenceLevel float64,reason string) (*Recommendation, error) {
+func (s *Store) CreateRecommendation(ctx context.Context, analysisID uuid.UUID, action Action, confidenceLevel float64, reason string) (*Recommendation, error) {
 	recommendation := &Recommendation{
-		ID: uuid.New(),
-		AnalysisID: analysisID,
-		Action: action,
+		ID:              uuid.New(),
+		AnalysisID:      analysisID,
+		Action:          action,
 		ConfidenceLevel: confidenceLevel,
-		Reason: reason,
-		CreatedAt: time.Now(),
+		Reason:          reason,
+		CreatedAt:       time.Now(),
 	}
 
 	return s.recommendations.Create(ctx, recommendation)

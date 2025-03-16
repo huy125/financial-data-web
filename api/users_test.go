@@ -100,6 +100,20 @@ func (m *storeMock) CreateAnalysis(
 	return args.Get(0).(*store.Analysis), args.Error(1)
 }
 
+func (m *storeMock) CreateRecommendation(
+	ctx context.Context,
+	analysisID uuid.UUID,
+	action store.Action,
+	confidenceLevel float64,
+	reason string,
+) (*store.Recommendation, error) {
+	args := m.Called(analysisID, action, confidenceLevel, reason)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.Recommendation), args.Error(1)
+}
+
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
 
