@@ -85,7 +85,13 @@ func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, s
 	return s.analyses.CreateAnalysis(ctx, analysis)
 }
 
-func (s *Store) CreateRecommendation(ctx context.Context, analysisID uuid.UUID, action Action, confidenceLevel float64, reason string) (*Recommendation, error) {
+func (s *Store) CreateRecommendation(
+	ctx context.Context,
+	analysisID uuid.UUID,
+	action Action,
+	confidenceLevel float64,
+	reason string,
+) (*Recommendation, error) {
 	recommendation := &Recommendation{
 		ID:              uuid.New(),
 		AnalysisID:      analysisID,

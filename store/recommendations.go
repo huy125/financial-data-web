@@ -30,7 +30,6 @@ type recommendationService struct {
 	db *DB
 }
 
-// Save recommendation
 func (r *recommendationService) Create(ctx context.Context, recommendation *Recommendation) (*Recommendation, error) {
 	sql := `
 		INSERT INTO recommendation (analysis_id, action, confidence_level, reason)
@@ -49,5 +48,4 @@ func (r *recommendationService) Create(ctx context.Context, recommendation *Reco
 	}
 
 	return recommendation, nil
-
 }
