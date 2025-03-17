@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,19 +54,6 @@ type AnnualReport struct {
 	FiscalDateEnding       string `json:"fiscalDateEnding"`
 	TotalLiabilities       string `json:"totalLiabilities"`
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
-}
-
-// ThresholdRange represents the lowest, highest value and score of each range of threshold.
-type ThresholdRange struct {
-	Min   float64
-	Max   float64
-	Score float64
-}
-
-// ScoringRules reprepsents threshold range and weigh of each metrics.
-type ScoringRule struct {
-	Ranges []ThresholdRange
-	Weight float64
 }
 
 type fetchResult struct {
@@ -135,7 +120,7 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// GetStockAnalysisBySymbolHandler fetches general company overview for the given symbol.
+// GetStockAnalysisBySymbolHandler performs a basic stock evaluation.
 func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
@@ -160,42 +145,7 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	stockMetrics, err := s.updateStockMetrics(ctx, stock)
-	if err != nil {
-		http.Error(w,
-			"Internal server error",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	score, err := s.scoreStock(ctx, stock)
-	if err != nil {
-		s.log.Error("Failed to scoring stock", lctx.Error("error", err))
-		http.Error(w,
-			"Internal server error",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	action := getAction(score)
-	confidenceLevel := calculateConfidenceLevel(stockMetrics)
-
-	// A temporary userID while waiting authentification system
-	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e")
-	analysis, err := s.store.CreateAnalysis(ctx, userID, stock.ID, score)
-	if err != nil {
-		s.log.Error("Failed to create analysis", lctx.Error("error", err))
-		http.Error(w,
-			"Internal server error",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	reason := ""
-	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, reason)
+	recommendation, err := s.analyzeStock(ctx, stock)
 	if err != nil {
 		s.log.Error("Failed to create recommendation", lctx.Error("error", err))
 		http.Error(w,
@@ -213,62 +163,32 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	}
 }
 
-func (s *Server) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
-	return fetchDataFromAlphaVantage[TimeSeriesDaily](ctx, "TIME_SERIES_DAILY", symbol, s.apiKey)
-}
-
-func (s *Server) fetchStockOverview(ctx context.Context, symbol string) (*OverviewMetadata, error) {
-	return fetchDataFromAlphaVantage[OverviewMetadata](ctx, "OVERVIEW", symbol, s.apiKey)
-}
-
-func (s *Server) fetchBalanceSheet(ctx context.Context, symbol string) (*BalanceSheetMetadata, error) {
-	return fetchDataFromAlphaVantage[BalanceSheetMetadata](ctx, "BALANCE_SHEET", symbol, s.apiKey)
-}
-
-func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, apiKey string) (*T, error) {
-	baseURL := &url.URL{
-		Scheme: "https",
-		Host:   "www.alphavantage.co",
-		Path:   "/query",
-	}
-
-	q := baseURL.Query()
-	q.Set("function", function)
-	q.Set("symbol", symbol)
-	q.Set("apikey", apiKey)
-	baseURL.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+func (s *Server) analyzeStock(ctx context.Context, stock *store.Stock) (*store.Recommendation, error) {
+	stockMetrics, err := s.updateStockMetrics(ctx, stock)
 	if err != nil {
-		return nil, fmt.Errorf("error while constructing request for external api: %w", err)
+		return nil, err
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	score, err := s.scoreStock(ctx, stock)
 	if err != nil {
-		return nil, fmt.Errorf("error while sending request to external api: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrNotFound
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error with status code %d", resp.StatusCode)
+		return nil, err
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	action := getAction(score)
+	confidenceLevel := calculateConfidenceLevel(stockMetrics)
+
+	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e") // Temporary user ID
+	analysis, err := s.store.CreateAnalysis(ctx, userID, stock.ID, score)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading response body: %w", err)
+		return nil, err
 	}
 
-	var data T
-	err = json.Unmarshal(body, &data)
+	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, "")
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %w", err)
+		return nil, err
 	}
 
-	return &data, nil
+	return recommendation, nil
 }
 
 func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, error) {
@@ -462,114 +382,6 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 	return totalScore, nil
 }
 
-func calculateScore(value float64, rule ScoringRule) float64 {
-	for _, r := range rule.Ranges {
-		if value >= r.Min && value < r.Max {
-			return float64(r.Score) * rule.Weight
-		}
-	}
-	return 0
-}
-
-func getScoringRules() map[string]ScoringRule {
-	return map[string]ScoringRule{
-		"P/E Ratio":         getPERatioRule(),
-		"EPS":               getEPSRule(),
-		"Revenue Growth":    getRevenueGrowthRule(),
-		"Debt/Equity Ratio": getDebtEquityRule(),
-		"Dividend Yield":    getDividendYieldRule(),
-		"Market Cap":        getMarketCapRule(),
-	}
-}
-
-func getPERatioRule() ScoringRule {
-	const (
-		peLow    = 10
-		peMedium = 20
-		peHigh   = 30
-		peWeight = 0.16
-	)
-	return newScoringRule(peWeight, []ThresholdRange{
-		{Min: 0, Max: peLow, Score: highScore},
-		{Min: peLow, Max: peMedium, Score: mediumScore},
-		{Min: peMedium, Max: peHigh, Score: lowScore},
-		{Min: peHigh, Max: math.Inf(1), Score: veryLowScore},
-	})
-}
-
-func getEPSRule() ScoringRule {
-	const (
-		epsLow    = 2
-		epsHigh   = 5
-		epsWeight = 0.12
-	)
-	return newScoringRule(epsWeight, []ThresholdRange{
-		{Min: epsHigh, Max: math.Inf(1), Score: highScore},
-		{Min: epsLow, Max: epsHigh, Score: mediumScore},
-		{Min: 0, Max: epsLow, Score: veryLowScore},
-	})
-}
-
-func getRevenueGrowthRule() ScoringRule {
-	const (
-		revenueGrowthLow    = 0.1
-		revenueGrowthHigh   = 0.2
-		revenueGrowthWeight = 0.24
-	)
-	return newScoringRule(revenueGrowthWeight, []ThresholdRange{
-		{Min: revenueGrowthHigh, Max: math.Inf(1), Score: highScore},
-		{Min: revenueGrowthLow, Max: revenueGrowthHigh, Score: mediumScore},
-		{Min: math.Inf(-1), Max: 0, Score: veryLowScore},
-	})
-}
-
-func getDebtEquityRule() ScoringRule {
-	const (
-		debtEquityLow    = 0
-		debtEquityMedium = 0.5
-		debtEquityHigh   = 1.0
-		debtEquityWeight = 0.16
-	)
-	return newScoringRule(debtEquityWeight, []ThresholdRange{
-		{Min: debtEquityLow, Max: debtEquityMedium, Score: highScore},
-		{Min: debtEquityMedium, Max: debtEquityHigh, Score: mediumScore},
-		{Min: debtEquityHigh, Max: math.Inf(1), Score: veryLowScore},
-	})
-}
-
-func getDividendYieldRule() ScoringRule {
-	const (
-		dividendLow    = 0
-		dividendMedium = 0.03
-		dividendHigh   = 0.05
-		dividendWeight = 0.08
-	)
-	return newScoringRule(dividendWeight, []ThresholdRange{
-		{Min: dividendHigh, Max: math.Inf(1), Score: highScore},
-		{Min: dividendMedium, Max: dividendHigh, Score: mediumScore},
-		{Min: dividendLow, Max: dividendMedium, Score: veryLowScore},
-	})
-}
-
-func getMarketCapRule() ScoringRule {
-	const (
-		smallCap        = 2_000_000_000
-		midCap          = 20_000_000_000
-		largeCap        = 100_000_000_000
-		marketCapWeight = 0.24
-	)
-	return newScoringRule(marketCapWeight, []ThresholdRange{
-		{Min: largeCap, Max: math.Inf(1), Score: highScore},
-		{Min: midCap, Max: largeCap, Score: mediumScore},
-		{Min: smallCap, Max: midCap, Score: lowScore},
-		{Min: 0, Max: smallCap, Score: veryLowScore},
-	})
-}
-
-func newScoringRule(weight float64, ranges []ThresholdRange) ScoringRule {
-	return ScoringRule{Weight: weight, Ranges: ranges}
-}
-
 func getAction(score float64) store.Action {
 	switch {
 	case score >= StrongBuy:
@@ -591,6 +403,8 @@ func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
 		return 0
 	}
 
+	const exponent = 2
+	const maxPercentage = 100
 	normalizedMetrics := minMaxNormalizeMetrics(stockMetrics)
 
 	var sum, varianceSum float64
@@ -600,12 +414,12 @@ func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
 	mean := sum / float64(totalMetrics)
 
 	for _, value := range normalizedMetrics {
-		varianceSum += math.Pow(value-mean, 2)
+		varianceSum += math.Pow(value-mean, exponent)
 	}
 	sampleVariance := varianceSum / float64(totalMetrics-1)
 
 	stdDeviation := math.Sqrt(sampleVariance)
-	confidence := 100 - math.Min(stdDeviation*100, 100)
+	confidence := maxPercentage - math.Min(stdDeviation*maxPercentage, maxPercentage)
 
 	return confidence
 }
