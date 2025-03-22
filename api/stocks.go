@@ -372,7 +372,7 @@ func buildMetricMap(metrics []store.Metric) map[string]store.Metric {
 }
 
 func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, error) {
-	totalScore := 0.0
+	var totalScore float64
 
 	stockMetrics, err := s.store.FindLastestStockMetrics(ctx, stock.ID)
 	if err != nil {
