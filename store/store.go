@@ -19,6 +19,13 @@ type Store struct {
 	recommendations *recommendationService
 }
 
+// Model represents common entity fields.
+type Model struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 func New(db *DB) *Store {
 	store := &Store{
 		db: db,
@@ -143,10 +150,13 @@ func (s *Store) CreateStockMetric(
 	value float64,
 ) (*StockMetric, error) {
 	stockMetric := &StockMetric{
+		Model: Model{
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
 		StockID:    stockID,
 		MetricID:   metricID,
 		Value:      value,
-		RecordedAt: time.Now(),
 	}
 	return s.stocks.CreateStockMetric(ctx, *stockMetric)
 }
@@ -161,13 +171,16 @@ func (s *Store) FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) 
 
 func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, score float64) (*Analysis, error) {
 	analysis := &Analysis{
-		ID:        uuid.New(),
+		Model: Model{
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+
 		UserID:    userID,
 		StockID:   stockID,
 		Score:     score,
-		CreatedAt: time.Now(),
 	}
-	return s.analyses.CreateAnalysis(ctx, analysis)
+	return s.analyses.Create(ctx, analysis)
 }
 
 func (s *Store) CreateRecommendation(
@@ -178,12 +191,14 @@ func (s *Store) CreateRecommendation(
 	reason string,
 ) (*Recommendation, error) {
 	recommendation := &Recommendation{
-		ID:              uuid.New(),
+		Model: Model{
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
 		AnalysisID:      analysisID,
 		Action:          action,
 		ConfidenceLevel: confidenceLevel,
 		Reason:          reason,
-		CreatedAt:       time.Now(),
 	}
 
 	return s.recommendations.Create(ctx, recommendation)

@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -18,12 +17,12 @@ const (
 )
 
 type Recommendation struct {
-	ID              uuid.UUID
+	Model
+
 	AnalysisID      uuid.UUID
 	Action          Action
 	ConfidenceLevel float64
 	Reason          string
-	CreatedAt       time.Time
 }
 
 type recommendationService struct {
@@ -34,7 +33,7 @@ func (r *recommendationService) Create(ctx context.Context, recommendation *Reco
 	sql := `
 		INSERT INTO recommendation (analysis_id, action, confidence_level, reason)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at
+		RETURNING id, created_at, updated_at
 	`
 
 	err := r.db.pool.QueryRow(ctx, sql,
@@ -42,7 +41,7 @@ func (r *recommendationService) Create(ctx context.Context, recommendation *Reco
 		recommendation.Action,
 		recommendation.ConfidenceLevel,
 		recommendation.Reason,
-	).Scan(&recommendation.ID, &recommendation.CreatedAt)
+	).Scan(&recommendation.ID, &recommendation.CreatedAt, &recommendation.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

@@ -2,13 +2,12 @@ package store
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 // Metric represents the metric schema in database.
 type Metric struct {
-	ID          uuid.UUID
+	Model
+
 	Name        string
 	Description string
 }

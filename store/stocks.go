@@ -11,25 +11,27 @@ import (
 
 // Stock represents the stock schema in database.
 type Stock struct {
-	ID      uuid.UUID
+	Model
+
 	Symbol  string
 	Company string
 }
 
 // StockMetric represents the join table between stock and metric schema in database.
 type StockMetric struct {
-	ID         uuid.UUID
+	Model
+
 	StockID    uuid.UUID
 	MetricID   uuid.UUID
 	Value      float64
-	RecordedAt time.Time
 }
 
 // LatestStockMetric represents the most recent stock metric schema.
 type LatestStockMetric struct {
 	MetricName string
 	Value      float64
-	RecordedAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type stockService struct {
@@ -60,14 +62,14 @@ func (s *stockService) CreateStockMetric(ctx context.Context, stockMetric StockM
 	sql := `
 		INSERT INTO stock_metric (stock_id, metric_id, value)
 		VALUES ($1, $2, $3)
-		RETURNING id, recorded_at
+		RETURNING id, created_at, updated_at
 	`
 
 	err := s.db.pool.QueryRow(ctx, sql,
 		stockMetric.StockID,
 		stockMetric.MetricID,
 		stockMetric.Value,
-	).Scan(&stockMetric.ID, &stockMetric.RecordedAt)
+	).Scan(&stockMetric.ID, &stockMetric.CreatedAt, &stockMetric.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +83,12 @@ func (s *stockService) FindLastestStockMetrics(ctx context.Context, stockID uuid
 				DISTINCT ON (sm.metric_id) 
 				m.name AS metric_name,
 				sm.value,
-				sm.recorded_at
+				sm.created_at,
+				sm.updated_at
 			FROM stock_metric sm
 			INNER JOIN metric m ON sm.metric_id = m.id
 			WHERE sm.stock_id = $1
-			ORDER BY sm.metric_id, sm.recorded_at DESC
+			ORDER BY sm.metric_id, sm.created_at DESC
 		`
 
 	rows, err := s.db.pool.Query(ctx, sql, stockID)
@@ -97,7 +100,7 @@ func (s *stockService) FindLastestStockMetrics(ctx context.Context, stockID uuid
 	var stockMetrics []LatestStockMetric
 	for rows.Next() {
 		var stockMetric LatestStockMetric
-		if err := rows.Scan(&stockMetric.MetricName, &stockMetric.Value, &stockMetric.RecordedAt); err != nil {
+		if err := rows.Scan(&stockMetric.MetricName, &stockMetric.Value, &stockMetric.CreatedAt, &stockMetric.UpdatedAt); err != nil {
 			return nil, err
 		}
 		stockMetrics = append(stockMetrics, stockMetric)
