@@ -376,7 +376,7 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 
 	stockMetrics, err := s.store.FindLastestStockMetrics(ctx, stock.ID)
 	if err != nil {
-		return 0.0, err
+		return totalScore, err
 	}
 
 	rules := getScoringRules()
