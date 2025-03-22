@@ -76,16 +76,17 @@ func (s *stockService) CreateStockMetric(ctx context.Context, stockMetric StockM
 }
 
 func (s *stockService) FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]LatestStockMetric, error) {
-	sql := `SELECT
+	sql := `
+			SELECT
 				DISTINCT ON (sm.metric_id) 
-    			m.name AS metric_name,
-    			sm.value,
+				m.name AS metric_name,
+				sm.value,
 				sm.recorded_at
 			FROM stock_metric sm
 			INNER JOIN metric m ON sm.metric_id = m.id
 			WHERE sm.stock_id = $1
 			ORDER BY sm.metric_id, sm.recorded_at DESC
-			`
+		`
 
 	rows, err := s.db.pool.Query(ctx, sql, stockID)
 	if err != nil {
