@@ -15,11 +15,13 @@ type ScoringRule struct {
 	Weight float64
 }
 
-func calculateScore(value float64, rule ScoringRule) float64 {
+func applyFactors(value float64, rule ScoringRule) float64 {
 	for _, r := range rule.Ranges {
-		if value >= r.Min && value < r.Max {
-			return float64(r.Score) * rule.Weight
+		if value < r.Min || value >= r.Max {
+			continue
 		}
+		
+		return float64(r.Score) * rule.Weight
 	}
 	return 0
 }
