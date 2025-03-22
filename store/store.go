@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"net/mail"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,7 +33,76 @@ func New(db *DB) *Store {
 	return store
 }
 
-func (s *Store) CreateUser(ctx context.Context, user *User) (*User, error) {
+// CreateUser contains user creation information.
+type CreateUser struct {
+	Email     string
+	Firstname string
+	Lastname  string
+}
+
+// UpdateUser contains user updating information.
+type UpdateUser struct {
+	CreateUser
+
+	ID	uuid.UUID
+}
+
+// Validate validates an CreateUser configuration.
+func (c *CreateUser) Validate() error {
+	var errors ValidationErrors
+
+	if c.Email == "" {
+		errors = append(errors, ValidationError{Error: "email is required"})
+	} else if !isValidEmail(c.Email) {
+		errors = append(errors, ValidationError{Error: "email is invalid"})
+	}
+
+	if c.Firstname == "" {
+		errors = append(errors, ValidationError{Error: "firstname is required"})
+	}
+
+	if c.Lastname == "" {
+		errors = append(errors, ValidationError{Error: "lastname is required"})
+	}
+
+	if len(errors) > 0 {
+		return errors
+	}
+
+	return nil
+}
+
+// Validate validates an UpdateUser configuration.
+func (u *UpdateUser) Validate() error {
+	if u.ID == uuid.Nil {
+		return ValidationErrors{ValidationError{Error: "id is required"}}
+	}
+
+	return u.CreateUser.Validate()
+}
+
+func isValidEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+
+	return err == nil
+}
+
+func (s *Store) CreateUser(ctx context.Context, u *CreateUser) (*User, error) {
+	if errs := u.Validate(); errs != nil {
+		return nil, errs
+	}
+
+	user := &User{
+		Model: Model{
+			ID: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		Email: u.Email,
+		Firstname: u.Firstname,
+		Lastname: u.Lastname,
+	}
+
 	return s.users.Create(ctx, user)
 }
 
@@ -44,7 +114,22 @@ func (s *Store) FindUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	return s.users.Find(ctx, id)
 }
 
-func (s *Store) UpdateUser(ctx context.Context, user *User) (*User, error) {
+func (s *Store) UpdateUser(ctx context.Context, u *UpdateUser) (*User, error) {
+	if errs := u.Validate(); errs != nil {
+		return nil, errs
+	}
+
+	user := &User{
+		Model: Model{
+			ID: u.ID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		Email: u.Email,
+		Firstname: u.Firstname,
+		Lastname: u.Lastname,
+	}
+
 	return s.users.Update(ctx, user)
 }
 

@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/api/dto"
 	"github.com/huy125/financial-data-web/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,7 +25,7 @@ type storeMock struct {
 	mock.Mock
 }
 
-func (m *storeMock) CreateUser(_ context.Context, user *store.User) (*store.User, error) {
+func (m *storeMock) CreateUser(_ context.Context, user *store.CreateUser) (*store.User, error) {
 	args := m.Called(user)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -48,7 +47,7 @@ func (m *storeMock) FindUser(_ context.Context, id uuid.UUID) (*store.User, erro
 	return args.Get(0).(*store.User), args.Error(1)
 }
 
-func (m *storeMock) UpdateUser(_ context.Context, user *store.User) (*store.User, error) {
+func (m *storeMock) UpdateUser(_ context.Context, user *store.UpdateUser) (*store.User, error) {
 	args := m.Called(user)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -122,7 +121,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		name string
 
 		sendBody      string
-		wantUserDto   *dto.UserDto
+		wantCreateUser   *store.CreateUser
 		wantUserModel *store.User
 
 		returnErr error
@@ -135,7 +134,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			sendBody: `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`,
 
-			wantUserDto: &dto.UserDto{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
+			wantCreateUser: &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel: &store.User{
 				Model: store.Model{
 					ID:        uuid.MustParse("ab678e01-00ee-4e4c-acfc-6dc0b68fee20"),
@@ -163,7 +162,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			sendBody: `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`,
 
-			wantUserDto:   &dto.UserDto{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
+			wantCreateUser:   &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel: nil,
 			returnErr:     errors.New("internal error"),
 
@@ -173,7 +172,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			name: "handles bad request error",
 
 			sendBody:      "invalid request",
-			wantUserDto:   nil,
+			wantCreateUser:   nil,
 			wantUserModel: nil,
 
 			wantStatus: http.StatusBadRequest,
@@ -185,12 +184,12 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			t.Parallel()
 
 			storeMock := &storeMock{}
-			if test.wantUserDto != nil {
+			if test.wantCreateUser != nil {
 				storeMock.On("CreateUser",
-					mock.MatchedBy(func(u *store.User) bool {
-						return u.Email == test.wantUserDto.Email &&
-							u.Firstname == test.wantUserDto.Firstname &&
-							u.Lastname == test.wantUserDto.Lastname
+					mock.MatchedBy(func(u *store.CreateUser) bool {
+						return u.Email == test.wantCreateUser.Email &&
+							u.Firstname == test.wantCreateUser.Firstname &&
+							u.Lastname == test.wantCreateUser.Lastname
 					}),
 				).Return(test.wantUserModel, test.returnErr)
 			}
@@ -236,7 +235,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 		sendBody string
 
-		wantUserDto   *dto.UserDto
+		wantUpdateUser   *store.UpdateUser
 		wantUserModel *store.User
 		returnErr     error
 
@@ -247,7 +246,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "updates user successfully",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto: &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUpdateUser: &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
 			wantUserModel: &store.User{
 				Model: store.Model{
 					ID:        id,
@@ -274,7 +273,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles user not found error",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto:   &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUpdateUser:   &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
 			wantUserModel: nil,
 			returnErr:     store.ErrNotFound,
 
@@ -284,7 +283,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles internal server error",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUserDto:   &dto.UserDto{ID: id.String(), Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			wantUpdateUser:   &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
 			wantUserModel: nil,
 			returnErr:     errors.New("internal error"),
 
@@ -294,7 +293,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles bad request error",
 			sendBody: "invalid request",
 
-			wantUserDto:   nil,
+			wantUpdateUser:   nil,
 			wantUserModel: nil,
 
 			expectedStatusCode: http.StatusBadRequest,
@@ -306,13 +305,13 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			t.Parallel()
 
 			storeMock := &storeMock{}
-			if test.wantUserDto != nil {
+			if test.wantUpdateUser != nil {
 				storeMock.On("UpdateUser",
-					mock.MatchedBy(func(u *store.User) bool {
-						return u.ID.String() == test.wantUserDto.ID &&
-							u.Email == test.wantUserDto.Email &&
-							u.Firstname == test.wantUserDto.Firstname &&
-							u.Lastname == test.wantUserDto.Lastname
+					mock.MatchedBy(func(u *store.UpdateUser) bool {
+						return u.ID == test.wantUpdateUser.ID &&
+							u.Email == test.wantUpdateUser.Email &&
+							u.Firstname == test.wantUpdateUser.Firstname &&
+							u.Lastname == test.wantUpdateUser.Lastname
 					}),
 				).Return(test.wantUserModel, test.returnErr)
 			}

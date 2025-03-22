@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -54,6 +53,14 @@ type AnnualReport struct {
 	FiscalDateEnding       string `json:"fiscalDateEnding"`
 	TotalLiabilities       string `json:"totalLiabilities"`
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
+}
+
+type recommendationResp struct {
+	ID              string `json:"id"`
+	AnalysisID      string `json:"analysis_id"`
+	Action          string `json:"action"`
+	ConfidenceLevel float64 `json:"confidence_level"`
+	Reason          string `json:"reason"`
 }
 
 type fetchResult struct {
@@ -156,7 +163,7 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(mapper.ToAPIRecommendation(recommendation))
+	err = json.NewEncoder(w).Encode(toRecommendationResp(recommendation))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
@@ -444,4 +451,14 @@ func minMaxNormalizeMetrics(stockMetrics []store.StockMetric) []float64 {
 	}
 
 	return normalizedValues
+}
+
+func toRecommendationResp(r *store.Recommendation) recommendationResp {
+	return recommendationResp{
+		ID:              r.ID.String(),
+		AnalysisID:      r.AnalysisID.String(),
+		Action:          string(r.Action),
+		ConfidenceLevel: r.ConfidenceLevel,
+		Reason:          r.Reason,
+	}
 }

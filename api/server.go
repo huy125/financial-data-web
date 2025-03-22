@@ -12,10 +12,10 @@ import (
 )
 
 type Store interface {
-	CreateUser(ctx context.Context, user *store.User) (*store.User, error)
+	CreateUser(ctx context.Context, user *store.CreateUser) (*store.User, error)
 	ListUsers(ctx context.Context, limit, offset int) ([]store.User, error)
 	FindUser(ctx context.Context, id uuid.UUID) (*store.User, error)
-	UpdateUser(ctx context.Context, user *store.User) (*store.User, error)
+	UpdateUser(ctx context.Context, user *store.UpdateUser) (*store.User, error)
 	FindStockBySymbol(ctx context.Context, symbol string) (*store.Stock, error)
 	ListMetrics(ctx context.Context, limit, offset int) ([]store.Metric, error)
 	CreateStockMetric(ctx context.Context, stockID, metricID uuid.UUID, value float64) (*store.StockMetric, error)
