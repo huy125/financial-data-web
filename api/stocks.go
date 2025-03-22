@@ -381,9 +381,12 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 
 	rules := getScoringRules()
 	for _, stockMetric := range stockMetrics {
-		if rule, exists := rules[stockMetric.MetricName]; exists {
-			totalScore += calculateScore(stockMetric.Value, rule)
+		rule, exists := rules[stockMetric.MetricName]
+		if !exists {
+			continue
 		}
+		
+		totalScore += applyFactors(stockMetric.Value, rule)
 	}
 
 	return totalScore, nil
