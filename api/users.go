@@ -9,40 +9,52 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/huy125/financial-data-web/api/dto"
-	"github.com/huy125/financial-data-web/api/mapper"
 	"github.com/huy125/financial-data-web/store"
 )
 
 const requestTimeout = 5
 
+type userResp struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+}
+
+func toUserResp(u *store.User) userResp {
+	return userResp{
+		ID:        u.ID.String(),
+		Email:     u.Email,
+		Firstname: u.Firstname,
+		Lastname:  u.Lastname,
+	}
+}
+
+type userReq struct {
+	Email     string `json:"email"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+}
+
 // CreateUserHandler creates a new user.
 func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	var userDto dto.UserDto
-	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
+	var userReq userReq
+	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-
-	if err := userDto.Validate(); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		if encodeErr := json.NewEncoder(w).Encode(err); encodeErr != nil {
-			http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	user, err := mapper.ToStoreUser(&userDto)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	createdUser, err := s.store.CreateUser(ctx, user)
+	createdUser, err := s.store.CreateUser(
+		ctx,
+		&store.CreateUser{
+			Email: userReq.Email,
+			Lastname: userReq.Lastname,
+			Firstname: userReq.Firstname,
+		},
+	)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create user: %v", err), http.StatusInternalServerError)
 		return
@@ -50,7 +62,7 @@ func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(createdUser))
+	err = json.NewEncoder(w).Encode(toUserResp(createdUser))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
@@ -61,47 +73,40 @@ func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Id is required", http.StatusBadRequest)
+		http.Error(w, "ID is required", http.StatusBadRequest)
 		return
 	}
 
-	var userDto dto.UserDto
-	if err := json.NewDecoder(r.Body).Decode(&userDto); err != nil {
+	var userReq userReq
+	if err := json.NewDecoder(r.Body).Decode(&userReq); err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
-		return
-	}
-
-	if id != userDto.ID {
-		http.Error(w, "Mismatch Id between path and body", http.StatusBadRequest)
-		return
-	}
-
-	if err := userDto.Validate(); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		if encodeErr := json.NewEncoder(w).Encode(err); encodeErr != nil {
-			http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	user, err := mapper.ToStoreUser(&userDto)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to map dto to model: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	updatedUser, err := s.store.UpdateUser(ctx, user)
+	userUUID, err := uuid.Parse(id)
+	if err != nil {
+		http.Error(w, "Invalid ID format", http.StatusBadRequest)
+		return
+	}
+
+	updatedUser, err := s.store.UpdateUser(ctx, &store.UpdateUser{
+		CreateUser: store.CreateUser{
+			Email: userReq.Email,
+			Lastname: userReq.Lastname,
+			Firstname: userReq.Firstname,
+		},
+		ID: userUUID,
+	})
 	if err != nil {
 		s.handleStoreError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(updatedUser))
+	err = json.NewEncoder(w).Encode(toUserResp(updatedUser))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
@@ -132,7 +137,7 @@ func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(mapper.ToAPIUser(user))
+	err = json.NewEncoder(w).Encode(toUserResp(user))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return

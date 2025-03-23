@@ -25,7 +25,7 @@ up-schema:
 	@docker run --rm --network $(NETWORK_NAME) -v $(PWD)/$(MIGRATION_DIR):/migrations \
 		$(MIGRATE_IMAGE) \
 		-source file:///migrations \
-		-database $(DATA_SOURCE_NAME) up
+		-database $(DATA_SOURCE_NAME) up 1
 .PHONY: up-schema
 
 down-schema:

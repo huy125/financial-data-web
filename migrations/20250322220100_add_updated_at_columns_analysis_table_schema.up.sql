@@ -1,0 +1,7 @@
+ALTER TABLE analysis
+	ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+CREATE TRIGGER update_analysis_updated_at
+    BEFORE UPDATE ON analysis
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();

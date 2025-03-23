@@ -1,4 +1,6 @@
-### Description
+# Entity Relationship 🔗
+
+## Description
 
 A user can request an analysis for many stocks. Each analysis corresponds to a particular stock for a particular user.
 A stock can have many metrics associated with it (e.g., P/E ratio, EPS, etc.).
