@@ -19,7 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testAPIKey = "testAPIKey"
+const (
+	testAPIKey   = "testAPIKey"
+	testFilePath = "testFilePath"
+)
 
 type storeMock struct {
 	mock.Mock
@@ -120,9 +123,9 @@ func TestServer_CreateUserHandler(t *testing.T) {
 	tests := []struct {
 		name string
 
-		sendBody      string
-		wantCreateUser   *store.CreateUser
-		wantUserModel *store.User
+		sendBody       string
+		wantCreateUser *store.CreateUser
+		wantUserModel  *store.User
 
 		returnErr error
 
@@ -162,18 +165,18 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			sendBody: `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`,
 
-			wantCreateUser:   &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
-			wantUserModel: nil,
-			returnErr:     errors.New("internal error"),
+			wantCreateUser: &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
+			wantUserModel:  nil,
+			returnErr:      errors.New("internal error"),
 
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
 			name: "handles bad request error",
 
-			sendBody:      "invalid request",
-			wantCreateUser:   nil,
-			wantUserModel: nil,
+			sendBody:       "invalid request",
+			wantCreateUser: nil,
+			wantUserModel:  nil,
 
 			wantStatus: http.StatusBadRequest,
 		},
@@ -195,7 +198,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			}
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -235,9 +238,9 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 		sendBody string
 
-		wantUpdateUser   *store.UpdateUser
-		wantUserModel *store.User
-		returnErr     error
+		wantUpdateUser *store.UpdateUser
+		wantUserModel  *store.User
+		returnErr      error
 
 		expectedStatusCode int
 		expectedResponse   []byte
@@ -246,7 +249,10 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "updates user successfully",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUpdateUser: &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
+			wantUpdateUser: &store.UpdateUser{
+				ID:         id,
+				CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			},
 			wantUserModel: &store.User{
 				Model: store.Model{
 					ID:        id,
@@ -273,17 +279,28 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles user not found error",
 			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
 
-			wantUpdateUser:   &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
+			wantUpdateUser: &store.UpdateUser{
+				ID:         id,
+				CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			},
 			wantUserModel: nil,
 			returnErr:     store.ErrNotFound,
 
 			expectedStatusCode: http.StatusNotFound,
 		},
 		{
-			name:     "handles internal server error",
-			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
+			name: "handles internal server error",
+			sendBody: `{
+				"id": "` + id.String() + `",
+				"email": "test@example.com",
+				"firstname": "Bob",
+				"lastname": "Smith"
+			}`,
 
-			wantUpdateUser:   &store.UpdateUser{ID: id, CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"}},
+			wantUpdateUser: &store.UpdateUser{
+				ID:         id,
+				CreateUser: store.CreateUser{Email: "test@example.com", Firstname: "Bob", Lastname: "Smith"},
+			},
 			wantUserModel: nil,
 			returnErr:     errors.New("internal error"),
 
@@ -293,8 +310,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			name:     "handles bad request error",
 			sendBody: "invalid request",
 
-			wantUpdateUser:   nil,
-			wantUserModel: nil,
+			wantUpdateUser: nil,
+			wantUserModel:  nil,
 
 			expectedStatusCode: http.StatusBadRequest,
 		},
@@ -317,7 +334,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			}
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -404,7 +421,7 @@ func TestServer_GetUserHandler(t *testing.T) {
 			storeMock.On("FindUser", id).Return(test.wantUserModel, test.returnErr)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })

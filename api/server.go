@@ -34,18 +34,20 @@ type Store interface {
 type Server struct {
 	h http.Handler
 
-	apiKey string
-	store  Store
+	apiKey   string
+	filePath string
+	store    Store
 
 	log *logger.Logger
 }
 
 // New creates a new API server.
-func New(apiKey string, store Store, obsrv *observe.Observer) *Server {
+func New(apiKey, filePath string, store Store, obsrv *observe.Observer) *Server {
 	s := &Server{
-		apiKey: apiKey,
-		store:  store,
-		log:    obsrv.Log.With(lctx.Str("component", "api")),
+		apiKey:   apiKey,
+		filePath: filePath,
+		store:    store,
+		log:      obsrv.Log.With(lctx.Str("component", "api")),
 	}
 
 	s.h = s.routes()

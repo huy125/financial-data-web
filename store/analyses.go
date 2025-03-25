@@ -10,9 +10,9 @@ import (
 type Analysis struct {
 	Model
 
-	UserID    uuid.UUID
-	StockID   uuid.UUID
-	Score     float64
+	UserID  uuid.UUID
+	StockID uuid.UUID
+	Score   float64
 }
 
 type analysisService struct {

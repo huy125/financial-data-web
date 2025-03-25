@@ -50,8 +50,8 @@ func (s *Server) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	createdUser, err := s.store.CreateUser(
 		ctx,
 		&store.CreateUser{
-			Email: userReq.Email,
-			Lastname: userReq.Lastname,
+			Email:     userReq.Email,
+			Lastname:  userReq.Lastname,
 			Firstname: userReq.Firstname,
 		},
 	)
@@ -94,8 +94,8 @@ func (s *Server) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	updatedUser, err := s.store.UpdateUser(ctx, &store.UpdateUser{
 		CreateUser: store.CreateUser{
-			Email: userReq.Email,
-			Lastname: userReq.Lastname,
+			Email:     userReq.Email,
+			Lastname:  userReq.Lastname,
 			Firstname: userReq.Firstname,
 		},
 		ID: userUUID,

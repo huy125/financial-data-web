@@ -21,17 +21,17 @@ type Stock struct {
 type StockMetric struct {
 	Model
 
-	StockID    uuid.UUID
-	MetricID   uuid.UUID
-	Value      float64
+	StockID  uuid.UUID
+	MetricID uuid.UUID
+	Value    float64
 }
 
 // LatestStockMetric represents the most recent stock metric schema.
 type LatestStockMetric struct {
 	MetricName string
 	Value      float64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type stockService struct {
@@ -100,7 +100,12 @@ func (s *stockService) FindLastestStockMetrics(ctx context.Context, stockID uuid
 	var stockMetrics []LatestStockMetric
 	for rows.Next() {
 		var stockMetric LatestStockMetric
-		if err := rows.Scan(&stockMetric.MetricName, &stockMetric.Value, &stockMetric.CreatedAt, &stockMetric.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&stockMetric.MetricName,
+			&stockMetric.Value,
+			&stockMetric.CreatedAt,
+			&stockMetric.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		stockMetrics = append(stockMetrics, stockMetric)

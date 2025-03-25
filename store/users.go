@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-
 type User struct {
 	Model
 

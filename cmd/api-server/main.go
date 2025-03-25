@@ -42,6 +42,10 @@ func main() {
 			Name:  "dsn",
 			Usage: "Data source name",
 		},
+		&cli.StringFlag{
+			Name:  "algorithmPath",
+			Usage: "Path to the file that contains scoring algorithm",
+		},
 	}.Merge(cmd.MonitoringFlags)
 
 	app := cli.NewApp()
@@ -74,6 +78,7 @@ func runServer(c *cli.Context) error {
 	defer obsrv.Close()
 
 	apiKey := c.String("apiKey")
+	filePath := c.String("algorithmPath")
 	host := c.String("host")
 	port := c.String("port")
 	dsn := c.String("dsn")
@@ -91,7 +96,7 @@ func runServer(c *cli.Context) error {
 
 	store := store.New(db)
 	addr := net.JoinHostPort(host, port)
-	h := api.New(apiKey, store, obsrv)
+	h := api.New(apiKey, filePath, store, obsrv)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,

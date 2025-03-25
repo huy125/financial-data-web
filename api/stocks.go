@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,11 +57,11 @@ type AnnualReport struct {
 }
 
 type recommendationResp struct {
-	ID              string `json:"id"`
-	AnalysisID      string `json:"analysis_id"`
-	Action          string `json:"action"`
+	ID              string  `json:"id"`
+	AnalysisID      string  `json:"analysis_id"`
+	Action          string  `json:"action"`
 	ConfidenceLevel float64 `json:"confidence_level"`
-	Reason          string `json:"reason"`
+	Reason          string  `json:"reason"`
 }
 
 type fetchResult struct {
@@ -68,13 +69,6 @@ type fetchResult struct {
 	balanceSheet                 *BalanceSheetMetadata
 	overviewErr, balanceSheetErr error
 }
-
-const (
-	highScore    = 10
-	mediumScore  = 7
-	lowScore     = 5
-	veryLowScore = 3
-)
 
 const (
 	StrongBuy = 8
@@ -379,13 +373,23 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 		return totalScore, err
 	}
 
-	rules := getScoringRules()
+	cwd, err := os.Getwd()
+	if err != nil {
+		s.log.Error("Error:", lctx.Err(err))
+	}
+	s.log.Info("Path", lctx.Str("cwd", cwd))
+
+	rules, err := loadScoringRules(s.filePath)
+	if err != nil {
+		return totalScore, err
+	}
+
 	for _, stockMetric := range stockMetrics {
 		rule, exists := rules[stockMetric.MetricName]
 		if !exists {
 			continue
 		}
-		
+
 		totalScore += applyFactors(stockMetric.Value, rule)
 	}
 

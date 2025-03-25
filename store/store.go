@@ -51,7 +51,7 @@ type CreateUser struct {
 type UpdateUser struct {
 	CreateUser
 
-	ID	uuid.UUID
+	ID uuid.UUID
 }
 
 // Validate validates an CreateUser configuration.
@@ -101,13 +101,13 @@ func (s *Store) CreateUser(ctx context.Context, u *CreateUser) (*User, error) {
 
 	user := &User{
 		Model: Model{
-			ID: uuid.New(),
+			ID:        uuid.New(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Email: u.Email,
+		Email:     u.Email,
 		Firstname: u.Firstname,
-		Lastname: u.Lastname,
+		Lastname:  u.Lastname,
 	}
 
 	return s.users.Create(ctx, user)
@@ -128,13 +128,13 @@ func (s *Store) UpdateUser(ctx context.Context, u *UpdateUser) (*User, error) {
 
 	user := &User{
 		Model: Model{
-			ID: u.ID,
+			ID:        u.ID,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		Email: u.Email,
+		Email:     u.Email,
 		Firstname: u.Firstname,
-		Lastname: u.Lastname,
+		Lastname:  u.Lastname,
 	}
 
 	return s.users.Update(ctx, user)
@@ -154,9 +154,9 @@ func (s *Store) CreateStockMetric(
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
-		StockID:    stockID,
-		MetricID:   metricID,
-		Value:      value,
+		StockID:  stockID,
+		MetricID: metricID,
+		Value:    value,
 	}
 	return s.stocks.CreateStockMetric(ctx, *stockMetric)
 }
@@ -176,9 +176,9 @@ func (s *Store) CreateAnalysis(ctx context.Context, userID, stockID uuid.UUID, s
 			UpdatedAt: time.Now(),
 		},
 
-		UserID:    userID,
-		StockID:   stockID,
-		Score:     score,
+		UserID:  userID,
+		StockID: stockID,
+		Score:   score,
 	}
 	return s.analyses.Create(ctx, analysis)
 }
