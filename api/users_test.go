@@ -84,7 +84,7 @@ func (m *storeMock) CreateStockMetric(
 	return args.Get(0).(*store.StockMetric), args.Error(1)
 }
 
-func (m *storeMock) FindLastestStockMetrics(_ context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error) {
+func (m *storeMock) FindLatestStockMetrics(_ context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error) {
 	args := m.Called(stockID)
 
 	return args.Get(0).([]store.LatestStockMetric), args.Error(1)

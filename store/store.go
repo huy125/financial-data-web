@@ -165,7 +165,7 @@ func (s *Store) ListMetrics(ctx context.Context, limit, offset int) ([]Metric, e
 	return s.metrics.ListMetrics(ctx, limit, offset)
 }
 
-func (s *Store) FindLastestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]LatestStockMetric, error) {
+func (s *Store) FindLatestStockMetrics(ctx context.Context, stockID uuid.UUID) ([]LatestStockMetric, error) {
 	return s.stocks.FindLastestStockMetrics(ctx, stockID)
 }
 
