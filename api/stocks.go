@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"math"
 	"net/http"
-	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/huy125/financial-data-web/store"
 )
@@ -55,11 +56,26 @@ type AnnualReport struct {
 	TotalShareholderEquity string `json:"totalShareholderEquity"`
 }
 
+type recommendationResp struct {
+	ID              string  `json:"id"`
+	AnalysisID      string  `json:"analysis_id"`
+	Action          string  `json:"action"`
+	ConfidenceLevel float64 `json:"confidence_level"`
+	Reason          string  `json:"reason"`
+}
+
 type fetchResult struct {
 	overview                     *OverviewMetadata
 	balanceSheet                 *BalanceSheetMetadata
 	overviewErr, balanceSheetErr error
 }
+
+const (
+	StrongBuy = 8
+	Buy       = 6
+	Hold      = 4
+	Sell      = 2
+)
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
 func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +121,7 @@ func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// GetStockAnalysisBySymbolHandler fetches general company overview for the given symbol.
+// GetStockAnalysisBySymbolHandler performs a basic stock evaluation.
 func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.Request) {
 	if !r.URL.Query().Has("symbol") {
 		http.Error(w, "Query parameter 'symbol' is required", http.StatusBadRequest)
@@ -119,9 +135,9 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout*time.Second)
 	defer cancel()
 
-	data, err := s.fetchStockOverview(ctx, symbol)
+	stock, err := s.store.FindStockBySymbol(ctx, symbol)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, store.ErrNotFound) {
 			http.Error(w, "Stock data is not found", http.StatusNotFound)
 			return
 		}
@@ -130,8 +146,9 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	_, err = s.updateStockMetrics(ctx, symbol)
+	recommendation, err := s.analyzeStock(ctx, stock)
 	if err != nil {
+		s.log.Error("Failed to create recommendation", lctx.Error("error", err))
 		http.Error(w,
 			"Internal server error",
 			http.StatusInternalServerError,
@@ -140,69 +157,39 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(data)
+	err = json.NewEncoder(w).Encode(toRecommendationResp(recommendation))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
 		return
 	}
 }
 
-func (s *Server) fetchStockData(ctx context.Context, symbol string) (*TimeSeriesDaily, error) {
-	return fetchDataFromAlphaVantage[TimeSeriesDaily](ctx, "TIME_SERIES_DAILY", symbol, s.apiKey)
-}
-
-func (s *Server) fetchStockOverview(ctx context.Context, symbol string) (*OverviewMetadata, error) {
-	return fetchDataFromAlphaVantage[OverviewMetadata](ctx, "OVERVIEW", symbol, s.apiKey)
-}
-
-func (s *Server) fetchBalanceSheet(ctx context.Context, symbol string) (*BalanceSheetMetadata, error) {
-	return fetchDataFromAlphaVantage[BalanceSheetMetadata](ctx, "BALANCE_SHEET", symbol, s.apiKey)
-}
-
-func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, apiKey string) (*T, error) {
-	baseURL := &url.URL{
-		Scheme: "https",
-		Host:   "www.alphavantage.co",
-		Path:   "/query",
-	}
-
-	q := baseURL.Query()
-	q.Set("function", function)
-	q.Set("symbol", symbol)
-	q.Set("apikey", apiKey)
-	baseURL.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+func (s *Server) analyzeStock(ctx context.Context, stock *store.Stock) (*store.Recommendation, error) {
+	stockMetrics, err := s.updateStockMetrics(ctx, stock)
 	if err != nil {
-		return nil, fmt.Errorf("error while constructing request for external api: %w", err)
+		return nil, err
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	score, err := s.scoreStock(ctx, stock)
 	if err != nil {
-		return nil, fmt.Errorf("error while sending request to external api: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrNotFound
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error with status code %d", resp.StatusCode)
+		return nil, err
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	action := getAction(score)
+	confidenceLevel := calculateConfidenceLevel(stockMetrics)
+
+	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e") // Temporary user ID
+	analysis, err := s.store.CreateAnalysis(ctx, userID, stock.ID, score)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading response body: %w", err)
+		return nil, err
 	}
 
-	var data T
-	err = json.Unmarshal(body, &data)
+	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, "")
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling JSON: %w", err)
+		return nil, err
 	}
 
-	return &data, nil
+	return recommendation, nil
 }
 
 func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, error) {
@@ -230,15 +217,7 @@ func calculateDebtEquityRatio(balanceSheet *BalanceSheetMetadata) (float64, erro
 	return ratio, nil
 }
 
-func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store.StockMetric, error) {
-	stock, err := s.store.FindStockBySymbol(ctx, symbol)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, errors.New("stock not found")
-		}
-		return nil, fmt.Errorf("error while fetching stock by symbol: %w", err)
-	}
-
+func (s *Server) updateStockMetrics(ctx context.Context, stock *store.Stock) ([]store.StockMetric, error) {
 	const maxNumMetric = 50
 	const offset = 0
 	metrics, err := s.store.ListMetrics(ctx, maxNumMetric, offset)
@@ -247,7 +226,7 @@ func (s *Server) updateStockMetrics(ctx context.Context, symbol string) ([]store
 	}
 
 	metricMap := buildMetricMap(metrics)
-	overview, balanceSheet, fetchErr := s.combineStockData(ctx, symbol)
+	overview, balanceSheet, fetchErr := s.combineStockData(ctx, stock.Symbol)
 	if fetchErr != nil {
 		return nil, fetchErr
 	}
@@ -384,4 +363,109 @@ func buildMetricMap(metrics []store.Metric) map[string]store.Metric {
 		metricMap[metric.Name] = metric
 	}
 	return metricMap
+}
+
+func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, error) {
+	var totalScore float64
+
+	stockMetrics, err := s.store.FindLatestStockMetrics(ctx, stock.ID)
+	if err != nil {
+		return totalScore, err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		s.log.Error("Error:", lctx.Err(err))
+	}
+	s.log.Info("Path", lctx.Str("cwd", cwd))
+
+	rules, err := loadScoringRules(s.filePath)
+	if err != nil {
+		return totalScore, err
+	}
+
+	for _, stockMetric := range stockMetrics {
+		rule, exists := rules[stockMetric.MetricName]
+		if !exists {
+			continue
+		}
+
+		totalScore += applyFactors(stockMetric.Value, rule)
+	}
+
+	return totalScore, nil
+}
+
+func getAction(score float64) store.Action {
+	switch {
+	case score >= StrongBuy:
+		return store.StrongBuy
+	case score >= Buy:
+		return store.Buy
+	case score >= Hold:
+		return store.Hold
+	case score >= Sell:
+		return store.Sell
+	default:
+		return store.StrongSell
+	}
+}
+
+func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
+	totalMetrics := len(stockMetrics)
+	if totalMetrics == 0 {
+		return 0
+	}
+
+	const exponent = 2
+	const maxPercentage = 100
+	normalizedMetrics := minMaxNormalizeMetrics(stockMetrics)
+
+	var sum, varianceSum float64
+	for _, value := range normalizedMetrics {
+		sum += value
+	}
+	mean := sum / float64(totalMetrics)
+
+	for _, value := range normalizedMetrics {
+		varianceSum += math.Pow(value-mean, exponent)
+	}
+	sampleVariance := varianceSum / float64(totalMetrics-1)
+
+	stdDeviation := math.Sqrt(sampleVariance)
+	confidence := maxPercentage - math.Min(stdDeviation*maxPercentage, maxPercentage)
+
+	return confidence
+}
+
+func minMaxNormalizeMetrics(stockMetrics []store.StockMetric) []float64 {
+	minValue := stockMetrics[0].Value
+	maxValue := stockMetrics[0].Value
+
+	for _, metric := range stockMetrics {
+		if metric.Value < minValue {
+			minValue = metric.Value
+		}
+		if metric.Value > maxValue {
+			maxValue = metric.Value
+		}
+	}
+
+	// Normalize each metric using Min-Max formula
+	normalizedValues := make([]float64, len(stockMetrics))
+	for i, metric := range stockMetrics {
+		normalizedValues[i] = (metric.Value - minValue) / (maxValue - minValue)
+	}
+
+	return normalizedValues
+}
+
+func toRecommendationResp(r *store.Recommendation) recommendationResp {
+	return recommendationResp{
+		ID:              r.ID.String(),
+		AnalysisID:      r.AnalysisID.String(),
+		Action:          string(r.Action),
+		ConfidenceLevel: r.ConfidenceLevel,
+		Reason:          r.Reason,
+	}
 }

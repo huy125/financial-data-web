@@ -28,10 +28,10 @@ func BenchmarkGetUserHandler(b *testing.B) {
 		Firstname: "Bob",
 		Lastname:  "Smith",
 	}
-	storeMock.On("Find", id).Return(wantUserModel, nil)
+	storeMock.On("FindUser", id).Return(wantUserModel, nil)
 
 	obsvr := observe.NewFake()
-	srv := api.New(testAPIKey, storeMock, obsvr)
+	srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })
