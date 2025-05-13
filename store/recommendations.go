@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// Action represents a recommendation or sentiment for a financial stock.
+// It indicates whether the asset should be bought, held, or sold based on analysis.
 type Action string
 
 const (
@@ -16,6 +18,9 @@ const (
 	StrongSell Action = "Strong Sell"
 )
 
+// Recommendation represents an actionable insight produced by a model's analysis.
+// It includes the suggested action (e.g., Buy, Hold, Sell), the confidence level of the suggestion,
+// and a reason of this action.
 type Recommendation struct {
 	Model
 

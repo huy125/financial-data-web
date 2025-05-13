@@ -366,11 +366,11 @@ func buildMetricMap(metrics []store.Metric) map[string]store.Metric {
 }
 
 func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, error) {
-	var totalScore float64
+	var result float64
 
 	stockMetrics, err := s.store.FindLatestStockMetrics(ctx, stock.ID)
 	if err != nil {
-		return totalScore, err
+		return result, err
 	}
 
 	cwd, err := os.Getwd()
@@ -381,7 +381,7 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 
 	rules, err := loadScoringRules(s.filePath)
 	if err != nil {
-		return totalScore, err
+		return result, err
 	}
 
 	for _, stockMetric := range stockMetrics {
@@ -390,10 +390,10 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 			continue
 		}
 
-		totalScore += applyFactors(stockMetric.Value, rule)
+		result += applyFactors(stockMetric.Value, rule)
 	}
 
-	return totalScore, nil
+	return result, nil
 }
 
 func getAction(score float64) store.Action {

@@ -46,10 +46,12 @@ func fetchDataFromAlphaVantage[T any](ctx context.Context, function, symbol, api
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
+	switch resp.StatusCode {
+	case http.StatusNotFound:
 		return nil, ErrNotFound
-	}
-	if resp.StatusCode != http.StatusOK {
+	case http.StatusOK:
+		// continue
+	default:
 		return nil, fmt.Errorf("error with status code %d", resp.StatusCode)
 	}
 

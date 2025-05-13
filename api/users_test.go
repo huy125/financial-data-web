@@ -24,97 +24,8 @@ const (
 	testFilePath = "testFilePath"
 )
 
-type storeMock struct {
-	mock.Mock
-}
-
-func (m *storeMock) CreateUser(_ context.Context, user *store.CreateUser) (*store.User, error) {
-	args := m.Called(user)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.User), args.Error(1)
-}
-
-func (m *storeMock) ListUsers(_ context.Context, limit, offset int) ([]store.User, error) {
-	args := m.Called(limit, offset)
-	return args.Get(0).([]store.User), args.Error(1)
-}
-
-func (m *storeMock) FindUser(_ context.Context, id uuid.UUID) (*store.User, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-
-	return args.Get(0).(*store.User), args.Error(1)
-}
-
-func (m *storeMock) UpdateUser(_ context.Context, user *store.UpdateUser) (*store.User, error) {
-	args := m.Called(user)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.User), args.Error(1)
-}
-
-func (m *storeMock) FindStockBySymbol(_ context.Context, symbol string) (*store.Stock, error) {
-	args := m.Called(symbol)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-
-	return args.Get(0).(*store.Stock), args.Error(1)
-}
-
-func (m *storeMock) ListMetrics(_ context.Context, limit, offset int) ([]store.Metric, error) {
-	args := m.Called(limit, offset)
-	return args.Get(0).([]store.Metric), args.Error(1)
-}
-
-func (m *storeMock) CreateStockMetric(
-	_ context.Context,
-	storeID, metricID uuid.UUID,
-	value float64,
-) (*store.StockMetric, error) {
-	args := m.Called(storeID, metricID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.StockMetric), args.Error(1)
-}
-
-func (m *storeMock) FindLatestStockMetrics(_ context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error) {
-	args := m.Called(stockID)
-
-	return args.Get(0).([]store.LatestStockMetric), args.Error(1)
-}
-
-func (m *storeMock) CreateAnalysis(
-	_ context.Context,
-	userID, stockID uuid.UUID,
-	score float64,
-) (*store.Analysis, error) {
-	args := m.Called(userID, stockID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.Analysis), args.Error(1)
-}
-
-func (m *storeMock) CreateRecommendation(
-	ctx context.Context,
-	analysisID uuid.UUID,
-	action store.Action,
-	confidenceLevel float64,
-	reason string,
-) (*store.Recommendation, error) {
-	args := m.Called(analysisID, action, confidenceLevel, reason)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.Recommendation), args.Error(1)
-}
+var id = uuid.New()
+var validBody = `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`
 
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
@@ -232,7 +143,6 @@ func TestServer_CreateUserHandler(t *testing.T) {
 func TestServer_UpdateUserHandler(t *testing.T) {
 	t.Parallel()
 
-	id := uuid.New()
 	tests := []struct {
 		name string
 
@@ -247,7 +157,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 	}{
 		{
 			name:     "updates user successfully",
-			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
+			sendBody: validBody,
 
 			wantUpdateUser: &store.UpdateUser{
 				ID:         id,
@@ -266,18 +176,11 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			returnErr: nil,
 
 			expectedStatusCode: http.StatusOK,
-			expectedResponse: []byte(`
-				{
-					"id": "` + id.String() + `",
-					"email": "test@example.com",
-					"firstname": "Bob",
-					"lastname": "Smith"
-				}`,
-			),
+			expectedResponse:   []byte(validBody),
 		},
 		{
 			name:     "handles user not found error",
-			sendBody: `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`,
+			sendBody: validBody,
 
 			wantUpdateUser: &store.UpdateUser{
 				ID:         id,
@@ -289,13 +192,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			expectedStatusCode: http.StatusNotFound,
 		},
 		{
-			name: "handles internal server error",
-			sendBody: `{
-				"id": "` + id.String() + `",
-				"email": "test@example.com",
-				"firstname": "Bob",
-				"lastname": "Smith"
-			}`,
+			name:     "handles internal server error",
+			sendBody: validBody,
 
 			wantUpdateUser: &store.UpdateUser{
 				ID:         id,
@@ -450,4 +348,96 @@ func TestServer_GetUserHandler(t *testing.T) {
 			storeMock.AssertExpectations(t)
 		})
 	}
+}
+
+type storeMock struct {
+	mock.Mock
+}
+
+func (m *storeMock) CreateUser(_ context.Context, user *store.CreateUser) (*store.User, error) {
+	args := m.Called(user)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.User), args.Error(1)
+}
+
+func (m *storeMock) ListUsers(_ context.Context, limit, offset int) ([]store.User, error) {
+	args := m.Called(limit, offset)
+	return args.Get(0).([]store.User), args.Error(1)
+}
+
+func (m *storeMock) FindUser(_ context.Context, id uuid.UUID) (*store.User, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).(*store.User), args.Error(1)
+}
+
+func (m *storeMock) UpdateUser(_ context.Context, user *store.UpdateUser) (*store.User, error) {
+	args := m.Called(user)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.User), args.Error(1)
+}
+
+func (m *storeMock) FindStockBySymbol(_ context.Context, symbol string) (*store.Stock, error) {
+	args := m.Called(symbol)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).(*store.Stock), args.Error(1)
+}
+
+func (m *storeMock) ListMetrics(_ context.Context, limit, offset int) ([]store.Metric, error) {
+	args := m.Called(limit, offset)
+	return args.Get(0).([]store.Metric), args.Error(1)
+}
+
+func (m *storeMock) CreateStockMetric(
+	_ context.Context,
+	storeID, metricID uuid.UUID,
+	value float64,
+) (*store.StockMetric, error) {
+	args := m.Called(storeID, metricID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.StockMetric), args.Error(1)
+}
+
+func (m *storeMock) FindLatestStockMetrics(_ context.Context, stockID uuid.UUID) ([]store.LatestStockMetric, error) {
+	args := m.Called(stockID)
+
+	return args.Get(0).([]store.LatestStockMetric), args.Error(1)
+}
+
+func (m *storeMock) CreateAnalysis(
+	_ context.Context,
+	userID, stockID uuid.UUID,
+	score float64,
+) (*store.Analysis, error) {
+	args := m.Called(userID, stockID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.Analysis), args.Error(1)
+}
+
+func (m *storeMock) CreateRecommendation(
+	_ context.Context,
+	analysisID uuid.UUID,
+	action store.Action,
+	confidenceLevel float64,
+	reason string,
+) (*store.Recommendation, error) {
+	args := m.Called(analysisID, action, confidenceLevel, reason)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*store.Recommendation), args.Error(1)
 }
