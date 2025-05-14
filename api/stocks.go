@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/huy125/financial-data-web/store"
 )
@@ -33,7 +32,7 @@ type TimeSeriesDaily struct {
 	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
-// OverviewMetada represents the overall financial information of a stock.
+// OverviewMetadata represents the overall financial information of a stock.
 type OverviewMetadata struct {
 	Symbol                    string `json:"symbol"`
 	MarketCapitalization      string `json:"MarketCapitalization"`
@@ -167,26 +166,35 @@ func (s *Server) GetStockAnalysisBySymbolHandler(w http.ResponseWriter, r *http.
 func (s *Server) analyzeStock(ctx context.Context, stock *store.Stock) (*store.Recommendation, error) {
 	stockMetrics, err := s.updateStockMetrics(ctx, stock)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while updating stock metrics for stock %s: %w", stock.Symbol, err)
 	}
 
 	score, err := s.scoreStock(ctx, stock)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while scoring for stock %s: %w", stock.Symbol, err)
 	}
 
 	action := getAction(score)
 	confidenceLevel := calculateConfidenceLevel(stockMetrics)
 
-	userID := uuid.MustParse("b6ce2ebd-e6ae-4618-9d15-0ecb9f04a72e") // Temporary user ID
-	analysis, err := s.store.CreateAnalysis(ctx, userID, stock.ID, score)
+	createUser := &store.CreateUser{
+		Email:     "analysis@stock.com",
+		Firstname: "Analysis",
+		Lastname:  "Stock",
+	}
+	user, err := s.store.CreateUser(ctx, createUser)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while creating user: %w", err)
+	}
+
+	analysis, err := s.store.CreateAnalysis(ctx, user.ID, stock.ID, score)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating analysis for stock %s: %w", stock.Symbol, err)
 	}
 
 	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while creating recommendation for stock %s: %w", stock.Symbol, err)
 	}
 
 	return recommendation, nil
@@ -373,12 +381,6 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 		return result, err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		s.log.Error("Error:", lctx.Err(err))
-	}
-	s.log.Info("Path", lctx.Str("cwd", cwd))
-
 	rules, err := loadScoringRules(s.filePath)
 	if err != nil {
 		return result, err
@@ -412,8 +414,8 @@ func getAction(score float64) store.Action {
 }
 
 func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
-	totalMetrics := len(stockMetrics)
-	if totalMetrics == 0 {
+	n := len(stockMetrics)
+	if n == 0 {
 		return 0
 	}
 
@@ -425,12 +427,12 @@ func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
 	for _, value := range normalizedMetrics {
 		sum += value
 	}
-	mean := sum / float64(totalMetrics)
+	mean := sum / float64(n)
 
 	for _, value := range normalizedMetrics {
 		varianceSum += math.Pow(value-mean, exponent)
 	}
-	sampleVariance := varianceSum / float64(totalMetrics-1)
+	sampleVariance := varianceSum / float64(n-1)
 
 	stdDeviation := math.Sqrt(sampleVariance)
 	confidence := maxPercentage - math.Min(stdDeviation*maxPercentage, maxPercentage)
@@ -439,16 +441,20 @@ func calculateConfidenceLevel(stockMetrics []store.StockMetric) float64 {
 }
 
 func minMaxNormalizeMetrics(stockMetrics []store.StockMetric) []float64 {
-	minValue := stockMetrics[0].Value
-	maxValue := stockMetrics[0].Value
+	if len(stockMetrics) == 0 {
+		return nil
+	}
 
-	for _, metric := range stockMetrics {
-		if metric.Value < minValue {
-			minValue = metric.Value
-		}
-		if metric.Value > maxValue {
-			maxValue = metric.Value
-		}
+	values := make([]float64, len(stockMetrics))
+	for i, metric := range stockMetrics {
+		values[i] = metric.Value
+	}
+
+	minValue := slices.Min(values)
+	maxValue := slices.Max(values)
+
+	if minValue == maxValue {
+		return make([]float64, len(stockMetrics))
 	}
 
 	// Normalize each metric using Min-Max formula
