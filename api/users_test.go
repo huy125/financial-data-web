@@ -29,7 +29,7 @@ var validBody = `{"id": "` + id.String() + `", "email": "test@example.com", "fir
 
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
-
+	validBody = `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`
 	now := time.Now()
 	tests := []struct {
 		name string
@@ -46,7 +46,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		{
 			name: "creates user successfully",
 
-			sendBody: `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`,
+			sendBody: validBody,
 
 			wantCreateUser: &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel: &store.User{
@@ -74,7 +74,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		{
 			name: "handles internal server error",
 
-			sendBody: `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`,
+			sendBody: validBody,
 
 			wantCreateUser: &store.CreateUser{Email: "test@example.com", Firstname: "Alice", Lastname: "Smith"},
 			wantUserModel:  nil,
@@ -99,13 +99,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 
 			storeMock := &storeMock{}
 			if test.wantCreateUser != nil {
-				storeMock.On("CreateUser",
-					mock.MatchedBy(func(u *store.CreateUser) bool {
-						return u.Email == test.wantCreateUser.Email &&
-							u.Firstname == test.wantCreateUser.Firstname &&
-							u.Lastname == test.wantCreateUser.Lastname
-					}),
-				).Return(test.wantUserModel, test.returnErr)
+				storeMock.On("CreateUser", test.wantCreateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
 			obsvr := observe.NewFake()
@@ -143,6 +137,8 @@ func TestServer_CreateUserHandler(t *testing.T) {
 func TestServer_UpdateUserHandler(t *testing.T) {
 	t.Parallel()
 
+	id := uuid.New()
+	validBody := `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`
 	tests := []struct {
 		name string
 
@@ -221,14 +217,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			storeMock := &storeMock{}
 			if test.wantUpdateUser != nil {
-				storeMock.On("UpdateUser",
-					mock.MatchedBy(func(u *store.UpdateUser) bool {
-						return u.ID == test.wantUpdateUser.ID &&
-							u.Email == test.wantUpdateUser.Email &&
-							u.Firstname == test.wantUpdateUser.Firstname &&
-							u.Lastname == test.wantUpdateUser.Lastname
-					}),
-				).Return(test.wantUserModel, test.returnErr)
+				storeMock.On("UpdateUser", test.wantUpdateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
 			obsvr := observe.NewFake()
