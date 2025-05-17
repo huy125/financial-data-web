@@ -5,8 +5,8 @@ import (
 	"os"
 )
 
-// Range represents the lowest and highest values for a range, as well as its computed score.
-type Range struct {
+// ScoringRange represents the lowest and highest values for a range, as well as its computed score.
+type ScoringRange struct {
 	Min   *float64 `json:"min"`
 	Max   *float64 `json:"max"`
 	Score float64  `json:"score"`
@@ -16,8 +16,8 @@ type Range struct {
 // The threshold ranges of a metric is a set of predefined value intervals used to evaluate the metric performance by
 // assigning it a score
 type Rule struct {
-	Ranges []Range `json:"ranges"`
-	Weight float64 `json:"weight"`
+	ScoringRanges []ScoringRange `json:"ranges"`
+	Weight        float64        `json:"weight"`
 }
 
 // Config represents the scoring rules config.
@@ -28,7 +28,7 @@ type Config struct {
 // applyFactors calculates the weighted score for a rule.
 // If the value is outside the allowed range, it returns zero.
 func applyFactors(value float64, rule Rule) float64 {
-	for _, r := range rule.Ranges {
+	for _, r := range rule.ScoringRanges {
 		if r.Min != nil && value < *r.Min {
 			continue
 		}
