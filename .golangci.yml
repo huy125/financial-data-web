@@ -1,54 +1,74 @@
-linters:
-  enable-all: true
-  disable:
-    - exportloopref # Deprecated
-    - varnamelen # Not relevant
-    - exhaustruct # Not relevant
-    - ireturn # Not relevant
-    - nlreturn # Not relevant
-    - err113 # Too strict
-    - forcetypeassert # Too strict
-    - tagliatelle # Too strict
-    - wrapcheck # Too strict
-    - wsl # Too strict
-
-linters-settings:
-  depguard:
-    rules:
-      prevent_unmaintained_packages:
-        list-mode: lax
-        files:
-          - $all
-        allow:
-          - $gostd
-          - github.com/OpenPeeDeeP
-        deny:
-          - pkg: "io/ioutil"
-            desc: "replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil"
-          - pkg: "github.com/pkg/errors"
-            desc: "should be replaced by standard lib errors package"
-  gocyclo:
-    min-complexity: 15
-  revive:
-    rules:
-      - name: exported
-        arguments:
-          - disableStutteringCheck
-
+version: "2"
 run:
-  deadline: 5m
   tests: true
-
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+linters:
+  default: all
+  disable:
+    - err113
+    - exhaustruct
+    - forcetypeassert
+    - ireturn
+    - nlreturn
+    - tagliatelle
+    - varnamelen
+    - wrapcheck
+    - wsl
+  settings:
+    depguard:
+      rules:
+        prevent_unmaintained_packages:
+          list-mode: lax
+          files:
+            - $all
+          allow:
+            - $gostd
+            - github.com/OpenPeeDeeP
+          deny:
+            - pkg: io/ioutil
+              desc: 'replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil'
+            - pkg: github.com/pkg/errors
+              desc: should be replaced by standard lib errors package
+    gocyclo:
+      min-complexity: 15
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - funlen
+          - gosec
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - funlen
   max-issues-per-linter: 0
   max-same-issues: 0
-
-output:
-  formats: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
