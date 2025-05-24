@@ -1,0 +1,54 @@
+{
+	"rules": {
+		"P/E Ratio": {
+			"weight": 0.16,
+			"ranges": [
+				{ "min": 0, "max": 10, "score": 10 },
+				{ "min": 10, "max": 20, "score": 7 },
+				{ "min": 20, "max": 30, "score": 5 },
+				{ "min": 30, "max": null, "score": 3 }
+			]
+		},
+		  "EPS": {
+			"weight": 0.12,
+			"ranges": [
+				{ "min": 5, "max": null, "score": 10 },
+				{ "min": 2, "max": 5, "score": 7 },
+				{ "min": 0, "max": 2, "score": 3 }
+			]
+		},
+		  "Revenue Growth": {
+			"weight": 0.24,
+			"ranges": [
+				{ "min": 0.2, "max": null, "score": 10 },
+				{ "min": 0.1, "max": 0.2, "score": 7 },
+				{ "min": null, "max": 0, "score": 3 }
+			]
+		},
+		  "Debt/Equity Ratio": {
+			"weight": 0.16,
+			"ranges": [
+				{ "min": 0, "max": 0.5, "score": 10 },
+				{ "min": 0.5, "max": 1.0, "score": 7 },
+				{ "min": 1.0, "max": null, "score": 3 }
+			]
+		},
+		  "Dividend Yield": {
+			"weight": 0.08,
+			"ranges": [
+				{ "min": 0.05, "max": null, "score": 10 },
+				{ "min": 0.03, "max": 0.05, "score": 7 },
+				{ "min": 0, "max": 0.03, "score": 3 }
+			]
+		},
+		  "Market Cap": {
+			"weight": 0.24,
+			"ranges": [
+				{ "min": 100000000000, "max": null, "score": 10 },
+				{ "min": 20000000000, "max": 100000000000, "score": 7 },
+				{ "min": 2000000000, "max": 20000000000, "score": 5 },
+				{ "min": 0, "max": 2000000000, "score": 3 }
+			]
+		}
+	}
+}
