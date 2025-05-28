@@ -3,33 +3,27 @@ package authenticator
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
-	"os"
 )
 
-// Authenticator is used to authenticate users.
+// Authenticator encapsulates OAuth2 and OpenID Connect (OIDC) authentication functionality.
+// It provides methods for user login, callback handling, token verification,
+// and middleware for protecting routes that require authentication.
+
 type Authenticator struct {
 	*oidc.Provider
 	oauth2.Config
+	hmacSecret []byte
 }
 
 var ErrInvalidToken = errors.New("invalid token")
 
-func New(provider *oidc.Provider, config oauth2.Config) (*Authenticator, error) {
-	provider, err := oidc.NewProvider(
-		context.Background(),
-		"https://"+os.Getenv("AUTH0_DOMAIN")+"/",
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create provider: %w", err)
-	}
-
+func New(provider *oidc.Provider, config oauth2.Config, hmacSecret []byte) (*Authenticator, error) {
 	return &Authenticator{
-		Provider: provider,
-		Config:   config,
+		Provider:   provider,
+		Config:     config,
+		hmacSecret: hmacSecret,
 	}, nil
 }
 

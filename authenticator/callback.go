@@ -13,6 +13,12 @@ type tokenResp struct {
 
 // CallbackHandler handles the authenticator provider login callback
 func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
+	if state == "" || !a.verifyState(state) {
+		http.Error(w, "Invalid state", http.StatusBadRequest)
+		return
+	}
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, fmt.Sprintf("Missing authorization code"), http.StatusBadRequest)

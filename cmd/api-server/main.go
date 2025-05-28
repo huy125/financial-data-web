@@ -46,6 +46,11 @@ func main() {
 			Usage:    "Auth0 callback URL",
 			Required: true,
 		},
+		&cli.StringFlag{
+			Name:     "hmacSecret",
+			Usage:    "Secret key for HMAC operations in authentication",
+			Required: true,
+		},
 	}
 
 	flags := cmd.Flags{
@@ -108,10 +113,12 @@ func runServer(c *cli.Context) error {
 	host := c.String("host")
 	port := c.String("port")
 	dsn := c.String("dsn")
+
 	auth0Domain := c.String("auth0Domain")
 	auth0ClientId := c.String("auth0ClientId")
 	auth0ClientSecret := c.String("auth0ClientSecret")
 	auth0CallbackUrl := c.String("auth0CallbackUrl")
+	hmacSecret := c.String("hmacSecret")
 
 	if apiKey == "" {
 		obsrv.Log.Error("apiKey is required")
@@ -123,14 +130,12 @@ func runServer(c *cli.Context) error {
 		obsrv.Log.Error("Could not set up store")
 		return err
 	}
-
 	store := store.New(db)
 
-	if auth0Domain == "" || auth0ClientId == "" || auth0ClientSecret == "" || auth0CallbackUrl == "" {
-		obsrv.Log.Error("Auth0 domain, client ID, client secret and callback URL are required")
+	if auth0Domain == "" || auth0ClientId == "" || auth0ClientSecret == "" || auth0CallbackUrl == "" || hmacSecret == "" {
+		obsrv.Log.Error("Authentication parameters are required")
 		return nil
 	}
-
 	authProvider, err := oidc.NewProvider(
 		context.Background(),
 		"https://"+auth0Domain+"/",
@@ -148,14 +153,14 @@ func runServer(c *cli.Context) error {
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
 
-	authenticator, err := authenticator.New(authProvider, authConfig)
+	auth, err := authenticator.New(authProvider, authConfig, []byte(hmacSecret))
 	if err != nil {
 		obsrv.Log.Error("Could not set up authenticator")
 		return err
 	}
 
 	addr := net.JoinHostPort(host, port)
-	h := api.New(apiKey, filePath, store, obsrv, authenticator)
+	h := api.New(apiKey, filePath, store, obsrv, auth)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
