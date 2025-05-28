@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/huy125/financial-data-web/authenticator"
+	"golang.org/x/oauth2"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +25,29 @@ import (
 )
 
 func main() {
+	authFlags := cmd.Flags{
+		&cli.StringFlag{
+			Name:     "auth0Domain",
+			Usage:    "Auth0 domain",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "auth0ClientId",
+			Usage:    "Auth0 client ID",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "auth0ClientSecret",
+			Usage:    "Auth0 client secret",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "auth0CallbackUrl",
+			Usage:    "Auth0 callback URL",
+			Required: true,
+		},
+	}
+
 	flags := cmd.Flags{
 		&cli.StringFlag{
 			Name:     "apiKey",
@@ -46,7 +72,7 @@ func main() {
 			Name:  "algorithmPath",
 			Usage: "Path to the file that contains scoring algorithm",
 		},
-	}.Merge(cmd.MonitoringFlags)
+	}.Merge(cmd.MonitoringFlags, authFlags)
 
 	app := cli.NewApp()
 	app.Name = "financial-server"
@@ -82,6 +108,10 @@ func runServer(c *cli.Context) error {
 	host := c.String("host")
 	port := c.String("port")
 	dsn := c.String("dsn")
+	auth0Domain := c.String("auth0Domain")
+	auth0ClientId := c.String("auth0ClientId")
+	auth0ClientSecret := c.String("auth0ClientSecret")
+	auth0CallbackUrl := c.String("auth0CallbackUrl")
 
 	if apiKey == "" {
 		obsrv.Log.Error("apiKey is required")
@@ -95,8 +125,37 @@ func runServer(c *cli.Context) error {
 	}
 
 	store := store.New(db)
+
+	if auth0Domain == "" || auth0ClientId == "" || auth0ClientSecret == "" || auth0CallbackUrl == "" {
+		obsrv.Log.Error("Auth0 domain, client ID, client secret and callback URL are required")
+		return nil
+	}
+
+	authProvider, err := oidc.NewProvider(
+		context.Background(),
+		"https://"+auth0Domain+"/",
+	)
+	if err != nil {
+		obsrv.Log.Error("Could not set up authenticator provider")
+		return err
+	}
+
+	authConfig := oauth2.Config{
+		ClientID:     auth0ClientId,
+		ClientSecret: auth0ClientSecret,
+		RedirectURL:  auth0CallbackUrl,
+		Endpoint:     authProvider.Endpoint(),
+		Scopes:       []string{oidc.ScopeOpenID, "profile"},
+	}
+
+	authenticator, err := authenticator.New(authProvider, authConfig)
+	if err != nil {
+		obsrv.Log.Error("Could not set up authenticator")
+		return err
+	}
+
 	addr := net.JoinHostPort(host, port)
-	h := api.New(apiKey, filePath, store, obsrv)
+	h := api.New(apiKey, filePath, store, obsrv, authenticator)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,

@@ -30,24 +30,31 @@ type Store interface {
 	) (*store.Recommendation, error)
 }
 
+type Authenticator interface {
+	CallbackHandler(w http.ResponseWriter, r *http.Request)
+}
+
 // Server is the API server.
 type Server struct {
 	h http.Handler
 
-	apiKey   string
-	filePath string
-	store    Store
+	apiKey        string
+	filePath      string
+	store         Store
+	authenticator Authenticator
 
 	log *logger.Logger
 }
 
 // New creates a new API server.
-func New(apiKey, filePath string, store Store, obsrv *observe.Observer) *Server {
+func New(apiKey, filePath string, store Store, obsrv *observe.Observer, auth Authenticator) *Server {
 	s := &Server{
-		apiKey:   apiKey,
-		filePath: filePath,
-		store:    store,
-		log:      obsrv.Log.With(lctx.Str("component", "api")),
+		apiKey:        apiKey,
+		filePath:      filePath,
+		store:         store,
+		authenticator: auth,
+
+		log: obsrv.Log.With(lctx.Str("component", "api")),
 	}
 
 	s.h = s.routes()
@@ -64,6 +71,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("POST /auth/callback", s.authenticator.CallbackHandler)
 	mux.HandleFunc("GET /", s.HelloServerHandler)
 	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
 	mux.HandleFunc("GET /stocks/analysis", s.GetStockAnalysisBySymbolHandler)
