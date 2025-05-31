@@ -31,7 +31,9 @@ type Store interface {
 }
 
 type Authenticator interface {
+	LoginHandler(w http.ResponseWriter, r *http.Request)
 	CallbackHandler(w http.ResponseWriter, r *http.Request)
+	RequireAuth(handle http.HandlerFunc) http.HandlerFunc
 }
 
 // Server is the API server.
@@ -71,14 +73,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /auth/callback", s.authenticator.CallbackHandler)
+	mux.HandleFunc("GET /auth/login", s.authenticator.LoginHandler)
+	mux.HandleFunc("GET /auth/callback", s.authenticator.CallbackHandler)
 	mux.HandleFunc("GET /", s.HelloServerHandler)
-	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
-	mux.HandleFunc("GET /stocks/analysis", s.GetStockAnalysisBySymbolHandler)
 
-	mux.HandleFunc("POST /users", s.CreateUserHandler)
-	mux.HandleFunc("PUT /users/{id}", s.UpdateUserHandler)
-	mux.HandleFunc("GET /users/{id}", s.GetUserHandler)
+	mux.HandleFunc("GET /stocks", s.authenticator.RequireAuth(s.GetStockBySymbolHandler))
+	mux.HandleFunc("GET /stocks/analysis", s.authenticator.RequireAuth(s.GetStockAnalysisBySymbolHandler))
+
+	mux.HandleFunc("POST /users", s.authenticator.RequireAuth(s.CreateUserHandler))
+	mux.HandleFunc("PUT /users/{id}", s.authenticator.RequireAuth(s.UpdateUserHandler))
+	mux.HandleFunc("GET /users/{id}", s.authenticator.RequireAuth(s.GetUserHandler))
 
 	return mux
 }

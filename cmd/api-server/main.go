@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/huy125/financial-data-web/authenticator"
-	"golang.org/x/oauth2"
 	"net"
 	"net/http"
 	"os"
@@ -49,6 +47,11 @@ func main() {
 		&cli.StringFlag{
 			Name:     "hmacSecret",
 			Usage:    "Secret key for HMAC operations in authentication",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     "auth0ApiAudience",
+			Usage:    "Auth0 audience for access token verification",
 			Required: true,
 		},
 	}
@@ -119,6 +122,7 @@ func runServer(c *cli.Context) error {
 	auth0ClientSecret := c.String("auth0ClientSecret")
 	auth0CallbackUrl := c.String("auth0CallbackUrl")
 	hmacSecret := c.String("hmacSecret")
+	auth0ApiAudience := c.String("auth0ApiAudience")
 
 	if apiKey == "" {
 		obsrv.Log.Error("apiKey is required")
@@ -136,24 +140,15 @@ func runServer(c *cli.Context) error {
 		obsrv.Log.Error("Authentication parameters are required")
 		return nil
 	}
-	authProvider, err := oidc.NewProvider(
+
+	auth, err := authenticator.New(
 		context.Background(),
-		"https://"+auth0Domain+"/",
+		auth0Domain,
+		authenticator.WithOAuthConfig(auth0ClientId, auth0ClientSecret, auth0CallbackUrl),
+		authenticator.WithHmacSecret([]byte(hmacSecret)),
+		authenticator.WithApiAudience(auth0ApiAudience),
+		authenticator.WithLogger(obsrv.Log),
 	)
-	if err != nil {
-		obsrv.Log.Error("Could not set up authenticator provider")
-		return err
-	}
-
-	authConfig := oauth2.Config{
-		ClientID:     auth0ClientId,
-		ClientSecret: auth0ClientSecret,
-		RedirectURL:  auth0CallbackUrl,
-		Endpoint:     authProvider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile"},
-	}
-
-	auth, err := authenticator.New(authProvider, authConfig, []byte(hmacSecret))
 	if err != nil {
 		obsrv.Log.Error("Could not set up authenticator")
 		return err

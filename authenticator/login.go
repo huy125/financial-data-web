@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/oauth2"
 	"net/http"
 	"strings"
 )
@@ -18,8 +19,13 @@ func (a *Authenticator) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authCodeURL := a.Config.AuthCodeURL(
+		state,
+		oauth2.SetAuthURLParam("audience", a.ApiAudience),
+		oauth2.SetAuthURLParam("scope", a.Config.Scopes[0]),
+	)
 	// Redirect to external provider login page
-	http.Redirect(w, r, a.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
 func (a *Authenticator) generateState() (string, error) {
@@ -30,7 +36,7 @@ func (a *Authenticator) generateState() (string, error) {
 	}
 
 	state := base64.URLEncoding.EncodeToString(b)
-	mac := hmac.New(sha256.New, a.hmacSecret)
+	mac := hmac.New(sha256.New, a.HmacSecret)
 	mac.Write([]byte(state))
 	signature := mac.Sum(nil)
 
@@ -46,7 +52,7 @@ func (a *Authenticator) verifyState(s string) bool {
 	state := parts[0]
 	sig := parts[1]
 
-	mac := hmac.New(sha256.New, a.hmacSecret)
+	mac := hmac.New(sha256.New, a.HmacSecret)
 	mac.Write([]byte(state))
 	expectedSig := mac.Sum(nil)
 
