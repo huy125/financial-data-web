@@ -6,12 +6,26 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
 	"net/http"
 	"strings"
+
+	"golang.org/x/oauth2"
 )
 
+const (
+	StateGenerationByteSize = 32
+	StatePartCount          = 2
+)
+
+type tokenResp struct {
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int64  `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+}
+
+// LoginHandler handles the authenticator login process.
 func (a *Authenticator) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := a.generateState()
 	if err != nil {
@@ -29,7 +43,7 @@ func (a *Authenticator) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Authenticator) generateState() (string, error) {
-	b := make([]byte, 32)
+	b := make([]byte, StateGenerationByteSize)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random string: %w", err)
@@ -44,8 +58,8 @@ func (a *Authenticator) generateState() (string, error) {
 }
 
 func (a *Authenticator) verifyState(s string) bool {
-	parts := strings.SplitN(s, ":", 2)
-	if len(parts) != 2 {
+	parts := strings.SplitN(s, ":", StatePartCount)
+	if len(parts) != StatePartCount {
 		return false
 	}
 
@@ -62,4 +76,44 @@ func (a *Authenticator) verifyState(s string) bool {
 	}
 
 	return hmac.Equal(decodedSig, expectedSig)
+}
+
+// CallbackHandler handles the authenticator provider login callback.
+func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	state := r.URL.Query().Get("state")
+	if state == "" || !a.verifyState(state) {
+		http.Error(w, ErrInvalidState.Error(), http.StatusBadRequest)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, ErrMissingAuthCode.Error(), http.StatusBadRequest)
+		return
+	}
+
+	token, err := a.Config.Exchange(r.Context(), code)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%s: %v", ErrTokenExchangeFail.Error(), err), http.StatusInternalServerError)
+		return
+	}
+
+	// Verify the ID token
+	_, err = a.verifyToken(r.Context(), token)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%s: %v", ErrTokenVerifyFail.Error(), err), http.StatusInternalServerError)
+		return
+	}
+
+	tokenResp := tokenResp{
+		AccessToken: token.AccessToken,
+		ExpiresIn:   token.ExpiresIn,
+		TokenType:   "Bearer",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(tokenResp)
+	if err != nil {
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
 }

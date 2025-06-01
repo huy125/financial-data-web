@@ -34,6 +34,7 @@ type Authenticator interface {
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	CallbackHandler(w http.ResponseWriter, r *http.Request)
 	RequireAuth(handle http.HandlerFunc) http.HandlerFunc
+	LogoutHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // Server is the API server.
@@ -75,6 +76,8 @@ func (s *Server) routes() http.Handler {
 
 	mux.HandleFunc("GET /auth/login", s.authenticator.LoginHandler)
 	mux.HandleFunc("GET /auth/callback", s.authenticator.CallbackHandler)
+	mux.HandleFunc("GET /auth/logout", s.authenticator.LogoutHandler)
+
 	mux.HandleFunc("GET /", s.HelloServerHandler)
 
 	mux.HandleFunc("GET /stocks", s.authenticator.RequireAuth(s.GetStockBySymbolHandler))

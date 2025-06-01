@@ -2,8 +2,12 @@ package authenticator
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/hamba/logger/v2"
 	lctx "github.com/hamba/logger/v2/ctx"
@@ -22,10 +26,10 @@ type Authenticator struct {
 	log *logger.Logger
 }
 
-// Option defines a function type to apply options to Authenticator
+// Option defines a function type to apply options to Authenticator.
 type Option func(*Authenticator) error
 
-// WithOAuthConfig sets the OAuth2 configuration
+// WithOAuthConfig sets the OAuth2 configuration.
 func WithOAuthConfig(clientID, clientSecret, redirectURL string) Option {
 	return func(a *Authenticator) error {
 		a.Config.ClientID = clientID
@@ -35,7 +39,7 @@ func WithOAuthConfig(clientID, clientSecret, redirectURL string) Option {
 	}
 }
 
-// WithHmacSecret sets the HMAC secret for state parameter verification
+// WithHmacSecret sets the HMAC secret for state parameter verification.
 func WithHmacSecret(secret []byte) Option {
 	return func(a *Authenticator) error {
 		a.HmacSecret = secret
@@ -43,7 +47,7 @@ func WithHmacSecret(secret []byte) Option {
 	}
 }
 
-// WithApiAudience sets the API audience for access token verification
+// WithApiAudience sets the API audience for access token verification.
 func WithApiAudience(aud string) Option {
 	return func(a *Authenticator) error {
 		a.ApiAudience = aud
@@ -51,15 +55,13 @@ func WithApiAudience(aud string) Option {
 	}
 }
 
-// WithLogger sets the logger for the authenticator
+// WithLogger sets the logger for the authenticator.
 func WithLogger(log *logger.Logger) Option {
 	return func(a *Authenticator) error {
 		a.log = log.With(lctx.Str("component", "authenticator"))
 		return nil
 	}
 }
-
-var ErrInvalidToken = errors.New("invalid token")
 
 func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, error) {
 	// Create OIDC provider
@@ -84,4 +86,93 @@ func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, er
 	}
 
 	return auth, nil
+}
+
+// verifyToken verifies the ID token and returns the parsed token.
+func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return nil, ErrNoIDToken
+	}
+
+	oidcConfig := &oidc.Config{
+		ClientID: a.Config.ClientID,
+	}
+	verifier := a.Provider.Verifier(oidcConfig)
+	return verifier.Verify(ctx, rawIDToken)
+}
+
+// verifyAccessToken verifies an access token.
+func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+	oidcConfig := &oidc.Config{
+		ClientID: a.ApiAudience,
+	}
+	verifier := a.Provider.Verifier(oidcConfig)
+
+	return verifier.Verify(ctx, token.AccessToken)
+}
+
+// revokeToken sends a request to Auth0 to revoke the token.
+func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
+	domain := a.getDomain()
+	revokeURL := fmt.Sprintf("https://%s/oauth/revoke", domain)
+
+	// Prepare the request body
+	form := url.Values{}
+	form.Add("client_id", a.Config.ClientID)
+	form.Add("client_secret", a.Config.ClientSecret)
+	form.Add("token", token)
+
+	// Create and send the request
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, revokeURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("failed to create revocation request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send revocation request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read revocation response: %w", err)
+		}
+		return fmt.Errorf("failed to revoke token with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (a *Authenticator) getDomain() string {
+	endpoint := a.Provider.Endpoint().AuthURL
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return strings.TrimPrefix(endpoint, "https://")
+	}
+	return u.Host
+}
+
+// extractTokenFromRequest gets the bearer token from the Authorization header.
+func extractTokenFromRequest(r *http.Request) string {
+	authHeader := r.Header.Get(AuthHeader)
+	if authHeader == "" {
+		return ""
+	}
+
+	if !strings.HasPrefix(authHeader, AuthHeaderPrefix) {
+		return ""
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, AuthHeaderPrefix)
+	if tokenString == "" {
+		return ""
+	}
+
+	return tokenString
 }
