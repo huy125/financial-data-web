@@ -30,24 +30,34 @@ type Store interface {
 	) (*store.Recommendation, error)
 }
 
+type Authenticator interface {
+	LoginHandler(w http.ResponseWriter, r *http.Request)
+	CallbackHandler(w http.ResponseWriter, r *http.Request)
+	RequireAuth(handle http.HandlerFunc) http.HandlerFunc
+	LogoutHandler(w http.ResponseWriter, r *http.Request)
+}
+
 // Server is the API server.
 type Server struct {
 	h http.Handler
 
-	apiKey   string
-	filePath string
-	store    Store
+	apiKey        string
+	filePath      string
+	store         Store
+	authenticator Authenticator
 
 	log *logger.Logger
 }
 
 // New creates a new API server.
-func New(apiKey, filePath string, store Store, obsrv *observe.Observer) *Server {
+func New(apiKey, filePath string, store Store, obsrv *observe.Observer, auth Authenticator) *Server {
 	s := &Server{
-		apiKey:   apiKey,
-		filePath: filePath,
-		store:    store,
-		log:      obsrv.Log.With(lctx.Str("component", "api")),
+		apiKey:        apiKey,
+		filePath:      filePath,
+		store:         store,
+		authenticator: auth,
+
+		log: obsrv.Log.With(lctx.Str("component", "api")),
 	}
 
 	s.h = s.routes()
@@ -64,13 +74,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /", s.HelloServerHandler)
-	mux.HandleFunc("GET /stocks", s.GetStockBySymbolHandler)
-	mux.HandleFunc("GET /stocks/analysis", s.GetStockAnalysisBySymbolHandler)
+	mux.HandleFunc("GET /auth/login", s.authenticator.LoginHandler)
+	mux.HandleFunc("GET /auth/callback", s.authenticator.CallbackHandler)
+	mux.HandleFunc("GET /auth/logout", s.authenticator.LogoutHandler)
 
-	mux.HandleFunc("POST /users", s.CreateUserHandler)
-	mux.HandleFunc("PUT /users/{id}", s.UpdateUserHandler)
-	mux.HandleFunc("GET /users/{id}", s.GetUserHandler)
+	mux.HandleFunc("GET /", s.HelloServerHandler)
+
+	mux.HandleFunc("GET /stocks", s.authenticator.RequireAuth(s.GetStockBySymbolHandler))
+	mux.HandleFunc("GET /stocks/analysis", s.authenticator.RequireAuth(s.GetStockAnalysisBySymbolHandler))
+
+	mux.HandleFunc("POST /users", s.authenticator.RequireAuth(s.CreateUserHandler))
+	mux.HandleFunc("PUT /users/{id}", s.authenticator.RequireAuth(s.UpdateUserHandler))
+	mux.HandleFunc("GET /users/{id}", s.authenticator.RequireAuth(s.GetUserHandler))
 
 	return mux
 }
