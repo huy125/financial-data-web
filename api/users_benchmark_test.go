@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,8 +31,16 @@ func BenchmarkGetUserHandler(b *testing.B) {
 	}
 	storeMock.On("FindUser", id).Return(wantUserModel, nil)
 
+	authMock := &authenticatorMock{}
+	authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
+		Return(func(h http.HandlerFunc) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				h(w, r)
+			}
+		})
+
 	obsvr := observe.NewFake()
-	srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
+	srv := api.New(testAPIKey, testFilePath, storeMock, obsvr, authMock)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })
