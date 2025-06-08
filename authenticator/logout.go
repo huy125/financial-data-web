@@ -45,6 +45,14 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	a.log.Info("User logout initiated", lctx.Str("return_to", returnTo))
 
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		HttpOnly: true,
+		Path:     "/",
+		MaxAge:   -1,
+		Secure:   false, // true in production with HTTPS
+	})
 	// Redirect to Auth0 logout URL
 	http.Redirect(w, r, logoutURL.String(), http.StatusTemporaryRedirect)
 }

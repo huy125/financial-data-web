@@ -9,9 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
-
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -26,20 +25,21 @@ type tokenResp struct {
 }
 
 // LoginHandler handles the authenticator login process.
-func (a *Authenticator) LoginHandler(w http.ResponseWriter, r *http.Request) {
+func (a *Authenticator) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 	state, err := a.generateState()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate random state: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	authCodeURL := a.Config.AuthCodeURL(
-		state,
-		oauth2.SetAuthURLParam("audience", a.ApiAudience),
-		oauth2.SetAuthURLParam("scope", a.Config.Scopes[0]),
-	)
-	// Redirect to external provider login page
-	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+
+	err = json.NewEncoder(w).Encode(map[string]string{"state": state})
+	if err != nil {
+		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *Authenticator) generateState() (string, error) {
@@ -80,7 +80,11 @@ func (a *Authenticator) verifyState(s string) bool {
 
 // CallbackHandler handles the authenticator provider login callback.
 func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	state := r.URL.Query().Get("state")
+	state, err := url.QueryUnescape(r.URL.Query().Get("state"))
+	if err != nil {
+		http.Error(w, ErrInvalidState.Error(), http.StatusBadRequest)
+	}
+
 	if state == "" || !a.verifyState(state) {
 		http.Error(w, ErrInvalidState.Error(), http.StatusBadRequest)
 		return
@@ -105,15 +109,13 @@ func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tokenResp := tokenResp{
-		AccessToken: token.AccessToken,
-		ExpiresIn:   token.ExpiresIn,
-		TokenType:   "Bearer",
-	}
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(tokenResp)
-	if err != nil {
-		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
-		return
-	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    token.AccessToken,
+		HttpOnly: true,
+		Path:     "/",
+		Secure:   false, // true in production with HTTPS
+	})
+	redirectURL := "http://localhost:3000/"
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }

@@ -86,6 +86,23 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /users", s.authenticator.RequireAuth(s.CreateUserHandler))
 	mux.HandleFunc("PUT /users/{id}", s.authenticator.RequireAuth(s.UpdateUserHandler))
 	mux.HandleFunc("GET /users/{id}", s.authenticator.RequireAuth(s.GetUserHandler))
+	mux.HandleFunc("GET /users/me", s.authenticator.RequireAuth(s.GetCurrentUserHandler))
 
-	return mux
+	return corsMiddleware(mux)
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
