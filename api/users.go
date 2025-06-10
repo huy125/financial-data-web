@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/huy125/financial-data-web/authenticator"
 	"net/http"
 	"time"
 
@@ -13,6 +14,14 @@ import (
 )
 
 const requestTimeout = 5
+
+// Profile represents the structure of the user data sent to the client
+type Profile struct {
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Picture string `json:"picture"`
+	ID      string `json:"id"`
+}
 
 type userResp struct {
 	ID        string `json:"id"`
@@ -140,6 +149,30 @@ func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(toUserResp(user))
 	if err != nil {
 		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Server) GetCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
+	userCtx := r.Context().Value(authenticator.UserContextKey)
+	claims, ok := userCtx.(authenticator.Claims)
+	if !ok {
+		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
+		return
+	}
+
+	// Create response object
+	user := Profile{
+		Email:   claims.Email,
+		Name:    claims.Name,
+		Picture: claims.Picture,
+		ID:      claims.Subject,
+	}
+
+	// Set content type header
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
 }
