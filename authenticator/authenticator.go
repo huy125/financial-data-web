@@ -20,46 +20,42 @@ import (
 type Authenticator struct {
 	Provider    *oidc.Provider
 	Config      oauth2.Config
-	HmacSecret  []byte
-	ApiAudience string
+	HMACSecret  []byte
+	APIAudience string
 
 	log *logger.Logger
 }
 
 // Option defines a function type to apply options to Authenticator.
-type Option func(*Authenticator) error
+type Option func(*Authenticator)
 
 // WithOAuthConfig sets the OAuth2 configuration.
 func WithOAuthConfig(clientID, clientSecret, redirectURL string) Option {
-	return func(a *Authenticator) error {
+	return func(a *Authenticator) {
 		a.Config.ClientID = clientID
 		a.Config.ClientSecret = clientSecret
 		a.Config.RedirectURL = redirectURL
-		return nil
 	}
 }
 
 // WithHmacSecret sets the HMAC secret for state parameter verification.
 func WithHmacSecret(secret []byte) Option {
-	return func(a *Authenticator) error {
-		a.HmacSecret = secret
-		return nil
+	return func(a *Authenticator) {
+		a.HMACSecret = secret
 	}
 }
 
 // WithApiAudience sets the API audience for access token verification.
 func WithApiAudience(aud string) Option {
-	return func(a *Authenticator) error {
-		a.ApiAudience = aud
-		return nil
+	return func(a *Authenticator) {
+		a.APIAudience = aud
 	}
 }
 
 // WithLogger sets the logger for the authenticator.
 func WithLogger(log *logger.Logger) Option {
-	return func(a *Authenticator) error {
+	return func(a *Authenticator) {
 		a.log = log.With(lctx.Str("component", "authenticator"))
-		return nil
 	}
 }
 
@@ -67,7 +63,7 @@ func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, er
 	// Create OIDC provider
 	provider, err := oidc.NewProvider(ctx, "https://"+domain+"/")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
+		return nil, fmt.Errorf("creating OIDC provider: %w", err)
 	}
 
 	// Configure OAuth2
@@ -80,9 +76,7 @@ func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, er
 	}
 
 	for _, opt := range opts {
-		if err := opt(auth); err != nil {
-			return nil, fmt.Errorf("failed to apply options: %w", err)
-		}
+		opt(auth)
 	}
 
 	return auth, nil
@@ -105,7 +99,7 @@ func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*
 // verifyAccessToken verifies an access token.
 func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
 	oidcConfig := &oidc.Config{
-		ClientID: a.ApiAudience,
+		ClientID: a.APIAudience,
 	}
 	verifier := a.Provider.Verifier(oidcConfig)
 
@@ -115,7 +109,7 @@ func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Tok
 // revokeToken sends a request to Auth0 to revoke the token.
 func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 	domain := a.getDomain()
-	revokeURL := fmt.Sprintf("https://%s/oauth/revoke", domain)
+	revokeURL := "https://" + domain + "/oauth/revoke"
 
 	// Prepare the request body
 	form := url.Values{}
@@ -131,8 +125,7 @@ func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send revocation request: %w", err)
 	}

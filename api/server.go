@@ -50,7 +50,7 @@ type Server struct {
 }
 
 // New creates a new API server.
-func New(apiKey, filePath string, store Store, obsrv *observe.Observer, auth Authenticator) *Server {
+func New(apiKey, filePath string, store Store, auth Authenticator, obsrv *observe.Observer) *Server {
 	s := &Server{
 		apiKey:        apiKey,
 		filePath:      filePath,

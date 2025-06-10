@@ -18,12 +18,6 @@ const (
 	StatePartCount          = 2
 )
 
-type tokenResp struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int64  `json:"expires_in"`
-	TokenType   string `json:"token_type"`
-}
-
 // LoginHandler handles the authenticator login process.
 func (a *Authenticator) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 	state, err := a.generateState()
@@ -50,7 +44,7 @@ func (a *Authenticator) generateState() (string, error) {
 	}
 
 	state := base64.URLEncoding.EncodeToString(b)
-	mac := hmac.New(sha256.New, a.HmacSecret)
+	mac := hmac.New(sha256.New, a.HMACSecret)
 	mac.Write([]byte(state))
 	signature := mac.Sum(nil)
 
@@ -66,7 +60,7 @@ func (a *Authenticator) verifyState(s string) bool {
 	state := parts[0]
 	sig := parts[1]
 
-	mac := hmac.New(sha256.New, a.HmacSecret)
+	mac := hmac.New(sha256.New, a.HMACSecret)
 	mac.Write([]byte(state))
 	expectedSig := mac.Sum(nil)
 

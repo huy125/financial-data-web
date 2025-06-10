@@ -12,7 +12,6 @@ import (
 // This should be called when the user wants to log out.
 func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	token := extractTokenFromRequest(r)
-
 	if token != "" {
 		err := a.revokeToken(r.Context(), token)
 		if err != nil && a.log != nil {
@@ -20,14 +19,12 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	domain := a.getDomain()
-	logoutURL, err := url.Parse(fmt.Sprintf("https://%s/v2/logout", domain))
+	logoutURL, err := url.Parse("https://" + a.getDomain() + "/v2/logout")
 	if err != nil {
-		http.Error(w, "Failed to construct logout URL", http.StatusInternalServerError)
+		a.log.Error("Failed to parse logout URL", lctx.Err(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	parameters := url.Values{}
 
 	// Get the return URL from query parameter or use default
 	returnTo := r.URL.Query().Get("returnTo")
@@ -39,6 +36,7 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		returnTo = fmt.Sprintf("%s://%s/", scheme, r.Host)
 	}
 
+	parameters := url.Values{}
 	parameters.Add("returnTo", returnTo)
 	parameters.Add("client_id", a.Config.ClientID)
 	logoutURL.RawQuery = parameters.Encode()

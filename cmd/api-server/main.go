@@ -156,7 +156,7 @@ func runServer(c *cli.Context) error {
 	}
 
 	addr := net.JoinHostPort(cfg.API.Host, cfg.API.Port)
-	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, store, obsrv, auth)
+	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, store, auth, obsrv)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
