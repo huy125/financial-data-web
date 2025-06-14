@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/authenticator"
 	"net"
 	"net/http"
 	"os"
@@ -15,46 +14,56 @@ import (
 	"github.com/hamba/cmd/v2"
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
+	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/hamba/pkg/v2/http/server"
 	"github.com/huy125/financial-data-web/api"
+	"github.com/huy125/financial-data-web/authenticator"
 	"github.com/huy125/financial-data-web/store"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-// Config holds application configuration parameters
+// Config holds application configuration parameters.
 type Config struct {
-	API struct {
-		Key           string
-		AlgorithmPath string
-		Host          string
-		Port          string
-	}
-	Auth struct {
-		Domain       string
-		ClientID     string
-		ClientSecret string
-		CallbackURL  string
-		HmacSecret   string
-		ApiAudience  string
-	}
-	DB struct {
-		DSN string
-	}
+	DB   DBConfig   `json:"-"`
+	API  APIConfig  `json:"api"`
+	Auth AuthConfig `json:"auth"`
+}
+
+// DBConfig holds database specific configurations.
+type DBConfig struct {
+	DSN string `json:"-"`
+}
+
+// APIConfig holds API specific configurations.
+type APIConfig struct {
+	Key           string `json:"key"`
+	AlgorithmPath string `json:"algorithmPath"`
+	Host          string `json:"host"`
+	Port          string `json:"port"`
+}
+
+// AuthConfig holds authenticator specific configurations.
+type AuthConfig struct {
+	ClientSecret string `json:"-"`
+	HMACSecret   string `json:"-"`
+	Domain       string `json:"domain"`
+	ClientID     string `json:"clientId"`
+	CallbackURL  string `json:"callbackUrl"`
+	APIAudience  string `json:"apiAudience"`
 }
 
 func main() {
-	authFlags := cmd.Flags{
+	flags := cmd.Flags{
 		&cli.StringFlag{
-			Name:     "auth0Domain",
-			Usage:    "Auth0 domain",
+			Name:     "configPath",
+			Usage:    "Path to API server configuration file",
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:     "auth0ClientId",
-			Usage:    "Auth0 client ID",
-			Required: true,
+			Name:  "dsn",
+			Usage: "Data source name",
 		},
 		&cli.StringFlag{
 			Name:     "auth0ClientSecret",
@@ -62,47 +71,11 @@ func main() {
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:     "auth0CallbackUrl",
-			Usage:    "Auth0 callback URL",
-			Required: true,
-		},
-		&cli.StringFlag{
 			Name:     "hmacSecret",
 			Usage:    "Secret key for HMAC operations in authentication",
 			Required: true,
 		},
-		&cli.StringFlag{
-			Name:     "auth0ApiAudience",
-			Usage:    "Auth0 audience for access token verification",
-			Required: true,
-		},
-	}
-
-	flags := cmd.Flags{
-		&cli.StringFlag{
-			Name:     "apiKey",
-			Usage:    "AlphaVantage API Key, required for stocks endpoints",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:  "host",
-			Usage: "Server host, default is localhost",
-			Value: "localhost",
-		},
-		&cli.StringFlag{
-			Name:  "port",
-			Usage: "Listen port for server, default is 8080",
-			Value: "8080",
-		},
-		&cli.StringFlag{
-			Name:  "dsn",
-			Usage: "Data source name",
-		},
-		&cli.StringFlag{
-			Name:  "algorithmPath",
-			Usage: "Path to the file that contains scoring algorithm",
-		},
-	}.Merge(cmd.MonitoringFlags, authFlags)
+	}.Merge(cmd.MonitoringFlags)
 
 	app := cli.NewApp()
 	app.Name = "financial-server"
@@ -133,23 +106,21 @@ func runServer(c *cli.Context) error {
 	}
 	defer obsrv.Close()
 
-	cfg := loadConfig(c)
-
-	// Validate API key
-	if cfg.API.Key == "" {
-		obsrv.Log.Error("apiKey is required")
-		return errors.New("apiKey is required")
+	cfg, err := prepareConfig(c)
+	if err != nil {
+		obsrv.Log.Error("Could not prepare config", lctx.Error("error", err))
+		return err
 	}
 
 	// Set up database
-	store, err := setupDatabase(cfg)
+	store, err := setupDatabase(cfg.DB)
 	if err != nil {
 		obsrv.Log.Error("Could not set up store", lctx.Error("error", err))
 		return err
 	}
 
 	// Set up authenticator
-	auth, err := setupAuthenticator(ctx, cfg, obsrv.Log)
+	auth, err := setupAuthenticator(ctx, cfg.Auth, obsrv.Log)
 	if err != nil {
 		obsrv.Log.Error("Could not set up authenticator", lctx.Error("error", err))
 		return err
@@ -175,33 +146,9 @@ func runServer(c *cli.Context) error {
 	return nil
 }
 
-// loadConfig loads configuration from CLI context
-func loadConfig(c *cli.Context) Config {
-	var cfg Config
-
-	// API configuration
-	cfg.API.Key = c.String("apiKey")
-	cfg.API.AlgorithmPath = c.String("algorithmPath")
-	cfg.API.Host = c.String("host")
-	cfg.API.Port = c.String("port")
-
-	// Auth configuration
-	cfg.Auth.Domain = c.String("auth0Domain")
-	cfg.Auth.ClientID = c.String("auth0ClientId")
-	cfg.Auth.ClientSecret = c.String("auth0ClientSecret")
-	cfg.Auth.CallbackURL = c.String("auth0CallbackUrl")
-	cfg.Auth.HmacSecret = c.String("hmacSecret")
-	cfg.Auth.ApiAudience = c.String("auth0ApiAudience")
-
-	// DB configuration
-	cfg.DB.DSN = c.String("dsn")
-
-	return cfg
-}
-
-// setupDatabase creates and configures the database connection
-func setupDatabase(cfg Config) (*store.Store, error) {
-	db, err := store.NewDB(store.WithDSN(cfg.DB.DSN))
+// setupDatabase creates and configures the database connection.
+func setupDatabase(cfg DBConfig) (*store.Store, error) {
+	db, err := store.NewDB(store.WithDSN(cfg.DSN))
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up database: %w", err)
 	}
@@ -209,33 +156,14 @@ func setupDatabase(cfg Config) (*store.Store, error) {
 	return store.New(db), nil
 }
 
-// setupAuthenticator creates and configures an authenticator
-func setupAuthenticator(ctx context.Context, cfg Config, log *logger.Logger) (*authenticator.Authenticator, error) {
-	if cfg.Auth.Domain == "" {
-		return nil, errors.New("domain is required")
-	}
-	if cfg.Auth.ClientID == "" {
-		return nil, errors.New("client id is required")
-	}
-	if cfg.Auth.ClientSecret == "" {
-		return nil, errors.New("client secret is required")
-	}
-	if cfg.Auth.CallbackURL == "" {
-		return nil, errors.New("callback url is required")
-	}
-	if cfg.Auth.HmacSecret == "" {
-		return nil, errors.New("hmac secret is required")
-	}
-	if cfg.Auth.ApiAudience == "" {
-		return nil, errors.New("api audience is required")
-	}
-
+// setupAuthenticator creates and configures an authenticator.
+func setupAuthenticator(ctx context.Context, cfg AuthConfig, log *logger.Logger) (*authenticator.Authenticator, error) {
 	auth, err := authenticator.New(
 		ctx,
-		cfg.Auth.Domain,
-		authenticator.WithOAuthConfig(cfg.Auth.ClientID, cfg.Auth.ClientSecret, cfg.Auth.CallbackURL),
-		authenticator.WithHmacSecret([]byte(cfg.Auth.HmacSecret)),
-		authenticator.WithApiAudience(cfg.Auth.ApiAudience),
+		cfg.Domain,
+		authenticator.WithOAuthConfig(cfg.ClientID, cfg.ClientSecret, cfg.CallbackURL),
+		authenticator.WithHMACSecret([]byte(cfg.HMACSecret)),
+		authenticator.WithAPIAudience(cfg.APIAudience),
 		authenticator.WithLogger(log),
 	)
 	if err != nil {
@@ -243,4 +171,103 @@ func setupAuthenticator(ctx context.Context, cfg Config, log *logger.Logger) (*a
 	}
 
 	return auth, nil
+}
+
+func prepareConfig(c *cli.Context) (*Config, error) {
+	cfgPath := c.String("configPath")
+	cfg, err := loadConfigFromFile(cfgPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Override config with CLI parameters
+	cfg.DB.DSN = c.String("dsn")
+	cfg.Auth.HMACSecret = c.String("hmacSecret")
+	cfg.Auth.ClientSecret = c.String("auth0ClientSecret")
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// loadConfigFromFile loads configuration from file.
+func loadConfigFromFile(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+// Validate checks if the Config object has all required fields filled in.
+func (c *Config) Validate() error {
+	if err := c.DB.validate(); err != nil {
+		return err
+	}
+
+	if err := c.API.validate(); err != nil {
+		return err
+	}
+
+	if err := c.Auth.validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *DBConfig) validate() error {
+	if c.DSN == "" {
+		return errors.New("database source name is required")
+	}
+
+	return nil
+}
+
+func (c *APIConfig) validate() error {
+	if c.Key == "" {
+		return errors.New("financial provider API key is required")
+	}
+	if c.AlgorithmPath == "" {
+		return errors.New("scoring algorithm path is required")
+	}
+	if c.Host == "" {
+		return errors.New("host is required")
+	}
+	if c.Port == "" {
+		return errors.New("port is required")
+	}
+
+	return nil
+}
+
+func (c *AuthConfig) validate() error {
+	if c.Domain == "" {
+		return errors.New("domain is required")
+	}
+	if c.ClientID == "" {
+		return errors.New("client id is required")
+	}
+	if c.ClientSecret == "" {
+		return errors.New("client secret is required")
+	}
+	if c.CallbackURL == "" {
+		return errors.New("callback url is required")
+	}
+	if c.HMACSecret == "" {
+		return errors.New("HMAC secret is required")
+	}
+	if c.APIAudience == "" {
+		return errors.New("API audience is required")
+	}
+
+	return nil
 }

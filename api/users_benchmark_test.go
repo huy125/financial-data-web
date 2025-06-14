@@ -2,7 +2,6 @@ package api_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/store"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +47,7 @@ func BenchmarkGetUserHandler(b *testing.B) {
 
 	reqURL := httpSrv.URL + "/users/" + id.String()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(b.Context(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -55,7 +55,7 @@ func BenchmarkGetUserHandler(b *testing.B) {
 
 	rr := httptest.NewRecorder()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		srv.ServeHTTP(rr, req)
 		require.Equal(b, http.StatusOK, rr.Code)
 	}

@@ -38,15 +38,15 @@ func WithOAuthConfig(clientID, clientSecret, redirectURL string) Option {
 	}
 }
 
-// WithHmacSecret sets the HMAC secret for state parameter verification.
-func WithHmacSecret(secret []byte) Option {
+// WithHMACSecret sets the HMAC secret for state parameter verification.
+func WithHMACSecret(secret []byte) Option {
 	return func(a *Authenticator) {
 		a.HMACSecret = secret
 	}
 }
 
-// WithApiAudience sets the API audience for access token verification.
-func WithApiAudience(aud string) Option {
+// WithAPIAudience sets the API audience for access token verification.
+func WithAPIAudience(aud string) Option {
 	return func(a *Authenticator) {
 		a.APIAudience = aud
 	}
@@ -108,7 +108,11 @@ func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Tok
 
 // revokeToken sends a request to Auth0 to revoke the token.
 func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
-	domain := a.getDomain()
+	domain, err := a.getDomain()
+	if err != nil {
+		return fmt.Errorf("getting domain: %w", err)
+	}
+
 	revokeURL := "https://" + domain + "/oauth/revoke"
 
 	// Prepare the request body
@@ -120,35 +124,35 @@ func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 	// Create and send the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, revokeURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return fmt.Errorf("failed to create revocation request: %w", err)
+		return fmt.Errorf("creating revocation request: %w", err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send revocation request: %w", err)
+		return fmt.Errorf("sending revocation request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("failed to read revocation response: %w", err)
+			return fmt.Errorf("reading revocation response: %w", err)
 		}
-		return fmt.Errorf("failed to revoke token with status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("revoking token with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
 }
 
-func (a *Authenticator) getDomain() string {
+func (a *Authenticator) getDomain() (string, error) {
 	endpoint := a.Provider.Endpoint().AuthURL
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return strings.TrimPrefix(endpoint, "https://")
+		return "", fmt.Errorf("invalid endpoint URL: %w", err)
 	}
-	return u.Host
+	return u.Host, nil
 }
 
 // extractTokenFromRequest gets the bearer token from the Authorization header.

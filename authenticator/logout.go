@@ -19,7 +19,12 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logoutURL, err := url.Parse("https://" + a.getDomain() + "/v2/logout")
+	domain, err := a.getDomain()
+	if err != nil {
+		a.log.Error("Failed to get domain", lctx.Err(err))
+	}
+
+	logoutURL, err := url.Parse("https://" + domain + "/v2/logout")
 	if err != nil {
 		a.log.Error("Failed to parse logout URL", lctx.Err(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

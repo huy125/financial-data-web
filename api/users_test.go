@@ -24,12 +24,10 @@ const (
 	testFilePath = "testFilePath"
 )
 
-var id = uuid.New()
-var validBody = `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`
-
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
-	validBody = `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`
+
+	validBody := `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`
 	now := time.Now()
 	tests := []struct {
 		name string
@@ -117,7 +115,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			t.Cleanup(func() { httpSrv.Close() })
 
 			reqURL := httpSrv.URL + "/users"
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(test.sendBody))
@@ -244,7 +242,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 
 			reqURL := httpSrv.URL + "/users/" + id.String()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewBufferString(test.sendBody))
@@ -339,7 +337,7 @@ func TestServer_GetUserHandler(t *testing.T) {
 
 			reqURL := httpSrv.URL + "/users/" + id.String()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)

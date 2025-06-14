@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/huy125/financial-data-web/authenticator"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/huy125/financial-data-web/authenticator"
 	"github.com/huy125/financial-data-web/store"
 )
 
 const requestTimeout = 5
 
-// Profile represents the structure of the user data sent to the client
+// Profile represents the structure of the user data sent to the client.
 type Profile struct {
 	Email   string `json:"email"`
 	Name    string `json:"name"`
