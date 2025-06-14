@@ -111,7 +111,7 @@ func TestServer_CreateUserHandler(t *testing.T) {
 				})
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr, authMock)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -237,7 +237,7 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				})
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr, authMock)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -332,7 +332,7 @@ func TestServer_GetUserHandler(t *testing.T) {
 				})
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr, authMock)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
