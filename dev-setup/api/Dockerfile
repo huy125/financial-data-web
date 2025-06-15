@@ -1,7 +1,7 @@
 # ===================================================================================
 # === Stage 1: Build the Go backend service =========================================
 # ===================================================================================
-FROM golang:1.23 AS builder
+FROM golang:1.24 AS builder
 WORKDIR /build
 
 ARG VERSION="1.0.0"
@@ -13,6 +13,7 @@ RUN go mod download
 COPY cmd/ ./cmd
 COPY api/ ./api
 COPY store/ ./store
+COPY authenticator/ ./authenticator
 
 RUN go build -o server ./cmd/api-server
 
@@ -26,17 +27,22 @@ WORKDIR /app
 
 EXPOSE 8080
 
-ARG ALPHA_VANTAGE_API_KEY
+ARG CONFIG_PATH
 ARG DATA_SOURCE_NAME
-ARG ALGORITHM_FILE_NAME
+ARG AUTH0_CLIENT_SECRET
+ARG HMAC_SECRET
 
-ENV ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+ENV CONFIG_PATH=${CONFIG_PATH}
 ENV DATA_SOURCE_NAME=${DATA_SOURCE_NAME}
 ENV LOG_LEVEL=${LOG_LEVEL}
-ENV ALGORITHM_FILE_NAME=${ALGORITHM_FILE_NAME}
-
-ARG HOST_IP="0.0.0.0"
+ENV AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
+ENV HMAC_SECRET=${HMAC_SECRET}
 
 COPY --from=builder /build/server . 
 COPY config/ ./config
-CMD sh -c "./server --apiKey=${ALPHA_VANTAGE_API_KEY} --host=${HOST_IP} --dsn=${DATA_SOURCE_NAME} --log.level=${LOG_LEVEL} --algorithmPath=${ALGORITHM_FILE_NAME}"
+CMD sh -c "./server \
+  --configPath=${CONFIG_PATH} \
+  --dsn=${DATA_SOURCE_NAME} \
+  --log.level=${LOG_LEVEL} \
+  --auth0ClientSecret=${AUTH0_CLIENT_SECRET} \
+  --hmacSecret=${HMAC_SECRET}"

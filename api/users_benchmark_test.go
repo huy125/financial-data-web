@@ -11,6 +11,7 @@ import (
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/financial-data-web/api"
 	"github.com/huy125/financial-data-web/store"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,15 +31,23 @@ func BenchmarkGetUserHandler(b *testing.B) {
 	}
 	storeMock.On("FindUser", id).Return(wantUserModel, nil)
 
+	authMock := &authenticatorMock{}
+	authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
+		Return(func(h http.HandlerFunc) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				h(w, r)
+			}
+		})
+
 	obsvr := observe.NewFake()
-	srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
+	srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })
 
 	reqURL := httpSrv.URL + "/users/" + id.String()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(b.Context(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -46,7 +55,7 @@ func BenchmarkGetUserHandler(b *testing.B) {
 
 	rr := httptest.NewRecorder()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		srv.ServeHTTP(rr, req)
 		require.Equal(b, http.StatusOK, rr.Code)
 	}
