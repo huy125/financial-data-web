@@ -11,6 +11,7 @@ import (
 	"github.com/huy125/financial-data-web/store"
 )
 
+// Store defines the interface for interacting with the application's persistent storage.
 type Store interface {
 	CreateUser(ctx context.Context, user *store.CreateUser) (*store.User, error)
 	ListUsers(ctx context.Context, limit, offset int) ([]store.User, error)
@@ -30,6 +31,7 @@ type Store interface {
 	) (*store.Recommendation, error)
 }
 
+// Authenticator defines the interface for handling authentication flows within the application.
 type Authenticator interface {
 	LoginHandler(w http.ResponseWriter, r *http.Request)
 	CallbackHandler(w http.ResponseWriter, r *http.Request)

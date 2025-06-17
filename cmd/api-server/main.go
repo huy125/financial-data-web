@@ -26,14 +26,8 @@ import (
 
 // Config holds application configuration parameters.
 type Config struct {
-	DB   DBConfig   `json:"-"`
 	API  APIConfig  `json:"api"`
 	Auth AuthConfig `json:"auth"`
-}
-
-// DBConfig holds database specific configurations.
-type DBConfig struct {
-	DSN string `json:"-"`
 }
 
 // APIConfig holds API specific configurations.
@@ -52,6 +46,7 @@ type AuthConfig struct {
 	ClientID     string `json:"clientId"`
 	CallbackURL  string `json:"callbackUrl"`
 	APIAudience  string `json:"apiAudience"`
+	ClientOrigin string `json:"clientOrigin"`
 }
 
 func main() {
@@ -106,16 +101,20 @@ func runServer(c *cli.Context) error {
 	}
 	defer obsrv.Close()
 
-	cfg, err := prepareConfig(c)
+	dsn := c.String("dsn")
+	if dsn == "" {
+		obsrv.Log.Error("dsn is required")
+	}
+	// Set up database
+	store, err := setupDatabase(dsn)
 	if err != nil {
-		obsrv.Log.Error("Could not prepare config", lctx.Error("error", err))
+		obsrv.Log.Error("Could not set up store", lctx.Error("error", err))
 		return err
 	}
 
-	// Set up database
-	store, err := setupDatabase(cfg.DB)
+	cfg, err := parseCfg(c)
 	if err != nil {
-		obsrv.Log.Error("Could not set up store", lctx.Error("error", err))
+		obsrv.Log.Error("Could not prepare config", lctx.Error("error", err))
 		return err
 	}
 
@@ -147,8 +146,8 @@ func runServer(c *cli.Context) error {
 }
 
 // setupDatabase creates and configures the database connection.
-func setupDatabase(cfg DBConfig) (*store.Store, error) {
-	db, err := store.NewDB(store.WithDSN(cfg.DSN))
+func setupDatabase(dsn string) (*store.Store, error) {
+	db, err := store.NewDB(store.WithDSN(dsn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up database: %w", err)
 	}
@@ -164,6 +163,7 @@ func setupAuthenticator(ctx context.Context, cfg AuthConfig, log *logger.Logger)
 		authenticator.WithOAuthConfig(cfg.ClientID, cfg.ClientSecret, cfg.CallbackURL),
 		authenticator.WithHMACSecret([]byte(cfg.HMACSecret)),
 		authenticator.WithAPIAudience(cfg.APIAudience),
+		authenticator.WithClientOrigin(cfg.ClientOrigin),
 		authenticator.WithLogger(log),
 	)
 	if err != nil {
@@ -173,7 +173,7 @@ func setupAuthenticator(ctx context.Context, cfg AuthConfig, log *logger.Logger)
 	return auth, nil
 }
 
-func prepareConfig(c *cli.Context) (*Config, error) {
+func parseCfg(c *cli.Context) (*Config, error) {
 	cfgPath := c.String("configPath")
 	cfg, err := loadConfigFromFile(cfgPath)
 	if err != nil {
@@ -181,7 +181,6 @@ func prepareConfig(c *cli.Context) (*Config, error) {
 	}
 
 	// Override config with CLI parameters
-	cfg.DB.DSN = c.String("dsn")
 	cfg.Auth.HMACSecret = c.String("hmacSecret")
 	cfg.Auth.ClientSecret = c.String("auth0ClientSecret")
 
@@ -209,24 +208,12 @@ func loadConfigFromFile(path string) (*Config, error) {
 
 // Validate checks if the Config object has all required fields filled in.
 func (c *Config) Validate() error {
-	if err := c.DB.validate(); err != nil {
-		return err
-	}
-
 	if err := c.API.validate(); err != nil {
 		return err
 	}
 
 	if err := c.Auth.validate(); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (c *DBConfig) validate() error {
-	if c.DSN == "" {
-		return errors.New("database source name is required")
 	}
 
 	return nil
@@ -267,6 +254,9 @@ func (c *AuthConfig) validate() error {
 	}
 	if c.APIAudience == "" {
 		return errors.New("API audience is required")
+	}
+	if c.ClientOrigin == "" {
+		return errors.New("client origin is required")
 	}
 
 	return nil

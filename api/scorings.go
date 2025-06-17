@@ -12,6 +12,8 @@ type ScoringRange struct {
 	Score float64  `json:"score"`
 }
 
+// Rule represents the threshold range and weight of each metric.
+// The threshold ranges of a metric is a set of predefined value intervals used to evaluate the metric performance by
 // assigning it a score.
 type Rule struct {
 	ScoringRanges []ScoringRange `json:"ranges"`

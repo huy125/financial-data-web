@@ -18,10 +18,11 @@ import (
 // It provides methods for user login, callback handling, token verification,
 // and middleware for protecting routes that require authentication.
 type Authenticator struct {
-	Provider    *oidc.Provider
-	Config      oauth2.Config
-	HMACSecret  []byte
-	APIAudience string
+	Provider     *oidc.Provider
+	Config       oauth2.Config
+	HMACSecret   []byte
+	APIAudience  string
+	ClientOrigin string
 
 	log *logger.Logger
 }
@@ -52,6 +53,13 @@ func WithAPIAudience(aud string) Option {
 	}
 }
 
+// WithClientOrigin sets the client origin for CORS configuration and redirection after the verification.
+func WithClientOrigin(origin string) Option {
+	return func(a *Authenticator) {
+		a.ClientOrigin = origin
+	}
+}
+
 // WithLogger sets the logger for the authenticator.
 func WithLogger(log *logger.Logger) Option {
 	return func(a *Authenticator) {
@@ -61,7 +69,12 @@ func WithLogger(log *logger.Logger) Option {
 
 func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, error) {
 	// Create OIDC provider
-	provider, err := oidc.NewProvider(ctx, "https://"+domain+"/")
+	u, err := url.Parse(domain)
+	if err != nil {
+		return nil, fmt.Errorf("parsing URL: %w", err)
+	}
+
+	provider, err := oidc.NewProvider(ctx, u.String())
 	if err != nil {
 		return nil, fmt.Errorf("creating OIDC provider: %w", err)
 	}
@@ -108,12 +121,12 @@ func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Tok
 
 // revokeToken sends a request to Auth0 to revoke the token.
 func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
-	domain, err := a.getDomain()
+	u, err := a.getBaseURL()
 	if err != nil {
 		return fmt.Errorf("getting domain: %w", err)
 	}
 
-	revokeURL := "https://" + domain + "/oauth/revoke"
+	revokeURL := u + "/oauth/revoke"
 
 	// Prepare the request body
 	form := url.Values{}
@@ -146,13 +159,14 @@ func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func (a *Authenticator) getDomain() (string, error) {
+func (a *Authenticator) getBaseURL() (string, error) {
 	endpoint := a.Provider.Endpoint().AuthURL
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return "", fmt.Errorf("invalid endpoint URL: %w", err)
 	}
-	return u.Host, nil
+
+	return strings.TrimSuffix(endpoint, u.RequestURI()), nil
 }
 
 // extractTokenFromRequest gets the bearer token from the Authorization header.

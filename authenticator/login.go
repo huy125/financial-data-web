@@ -27,7 +27,7 @@ func (a *Authenticator) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", a.ClientOrigin)
 
 	err = json.NewEncoder(w).Encode(map[string]string{"state": state})
 	if err != nil {
@@ -77,6 +77,7 @@ func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) 
 	state, err := url.QueryUnescape(r.URL.Query().Get("state"))
 	if err != nil {
 		http.Error(w, ErrInvalidState.Error(), http.StatusBadRequest)
+		return
 	}
 
 	if state == "" || !a.verifyState(state) {
@@ -110,6 +111,6 @@ func (a *Authenticator) CallbackHandler(w http.ResponseWriter, r *http.Request) 
 		Path:     "/",
 		Secure:   false, // true in production with HTTPS
 	})
-	redirectURL := "http://localhost:3000/"
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+
+	http.Redirect(w, r, a.ClientOrigin, http.StatusFound)
 }
