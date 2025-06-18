@@ -1,0 +1,15 @@
+{
+  "api": {
+    "key": "ENKU8V8KJXIVL9H2",
+    "algorithmPath": "./config/scoring_rule_config.json",
+    "host": "0.0.0.0",
+    "port": "8080"
+  },
+  "auth": {
+    "domain": "https://dev-ecjg5cu3pstdkpfe.eu.auth0.com/",
+    "clientID": "EHE2ZXpz835AT2VH9wzjHNXIdZGKPz9i",
+    "callbackURL": "http://localhost:8080/auth/callback",
+    "apiAudience": "https://api.financial-data.com",
+    "clientOrigin": "http://localhost:3000"
+  }
+}

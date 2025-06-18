@@ -24,12 +24,10 @@ const (
 	testFilePath = "testFilePath"
 )
 
-var id = uuid.New()
-var validBody = `{"id": "` + id.String() + `", "email": "test@example.com", "firstname": "Bob", "lastname": "Smith"}`
-
 func TestServer_CreateUserHandler(t *testing.T) {
 	t.Parallel()
-	validBody = `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`
+
+	validBody := `{"email": "test@example.com", "firstname": "Alice", "lastname": "Smith"}`
 	now := time.Now()
 	tests := []struct {
 		name string
@@ -102,18 +100,26 @@ func TestServer_CreateUserHandler(t *testing.T) {
 				storeMock.On("CreateUser", test.wantCreateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
+			authMock := &authenticatorMock{}
+			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
+				Return(func(h http.HandlerFunc) http.HandlerFunc {
+					return func(w http.ResponseWriter, r *http.Request) {
+						h(w, r)
+					}
+				})
+
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
 
 			reqURL := httpSrv.URL + "/users"
-
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(test.sendBody))
+
 			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()
@@ -220,15 +226,23 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 				storeMock.On("UpdateUser", test.wantUpdateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
+			authMock := &authenticatorMock{}
+			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
+				Return(func(h http.HandlerFunc) http.HandlerFunc {
+					return func(w http.ResponseWriter, r *http.Request) {
+						h(w, r)
+					}
+				})
+
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
 
 			reqURL := httpSrv.URL + "/users/" + id.String()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodPut, reqURL, bytes.NewBufferString(test.sendBody))
@@ -307,15 +321,23 @@ func TestServer_GetUserHandler(t *testing.T) {
 			storeMock := &storeMock{}
 			storeMock.On("FindUser", id).Return(test.wantUserModel, test.returnErr)
 
+			authMock := &authenticatorMock{}
+			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
+				Return(func(h http.HandlerFunc) http.HandlerFunc {
+					return func(w http.ResponseWriter, r *http.Request) {
+						h(w, r)
+					}
+				})
+
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
 
 			reqURL := httpSrv.URL + "/users/" + id.String()
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -429,4 +451,24 @@ func (m *storeMock) CreateRecommendation(
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*store.Recommendation), args.Error(1)
+}
+
+type authenticatorMock struct {
+	mock.Mock
+}
+
+func (m *authenticatorMock) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	m.Called(w, r)
+}
+
+func (m *authenticatorMock) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	m.Called(w, r)
+}
+
+func (m *authenticatorMock) RequireAuth(handle http.HandlerFunc) http.HandlerFunc {
+	return handle
+}
+
+func (m *authenticatorMock) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	m.Called(w, r)
 }
