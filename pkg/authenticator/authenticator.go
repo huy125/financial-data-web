@@ -2,6 +2,12 @@ package authenticator
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,12 +30,14 @@ type Authenticator struct {
 	APIAudience  string
 	ClientOrigin string
 
-	Log *logger.Logger
+	log *logger.Logger
 }
 
 const (
 	AuthHeader       string = "Authorization"
 	AuthHeaderPrefix string = "Bearer "
+	StateGenerationByteSize        = 32
+	StatePartCount                 = 2
 )
 
 // Option defines a function type to apply options to Authenticator.
@@ -68,7 +76,7 @@ func WithClientOrigin(origin string) Option {
 // WithLogger sets the logger for the authenticator.
 func WithLogger(log *logger.Logger) Option {
 	return func(a *Authenticator) {
-		a.Log = log.With(lctx.Str("component", "authenticator"))
+		a.log = log.With(lctx.Str("component", "authenticator"))
 	}
 }
 
@@ -100,11 +108,11 @@ func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, er
 	return auth, nil
 }
 
-// verifyToken verifies the ID token and returns the parsed token.
-func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+// VerifyToken verifies the ID token and returns the parsed token.
+func (a *Authenticator) VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		return nil, ErrNoIDToken
+		return nil, errors.New("no id_token field in oauth2 token")
 	}
 
 	oidcConfig := &oidc.Config{
@@ -124,9 +132,9 @@ func (a *Authenticator) VerifyAccessToken(ctx context.Context, token *oauth2.Tok
 	return verifier.Verify(ctx, token.AccessToken)
 }
 
-// revokeToken sends a request to Auth0 to revoke the token.
-func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
-	u, err := a.getBaseURL()
+// RevokeToken sends a request to Auth0 to revoke the token.
+func (a *Authenticator) RevokeToken(ctx context.Context, token string) error {
+	u, err := a.GetBaseURL()
 	if err != nil {
 		return fmt.Errorf("getting domain: %w", err)
 	}
@@ -164,7 +172,8 @@ func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func (a *Authenticator) getBaseURL() (string, error) {
+// GetBaseURL returns the auth0 provider endpoint URL
+func (a *Authenticator) GetBaseURL() (string, error) {
 	endpoint := a.Provider.Endpoint().AuthURL
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -172,6 +181,59 @@ func (a *Authenticator) getBaseURL() (string, error) {
 	}
 
 	return strings.TrimSuffix(endpoint, u.RequestURI()), nil
+}
+
+// GenerateState computes the state based on HMACSecret
+func (a *Authenticator) GenerateState() (string, error) {
+	b := make([]byte, StateGenerationByteSize)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random string: %w", err)
+	}
+
+	state := base64.URLEncoding.EncodeToString(b)
+	mac := hmac.New(sha256.New, a.HMACSecret)
+	mac.Write([]byte(state))
+	signature := mac.Sum(nil)
+
+	return state + ":" + hex.EncodeToString(signature), nil
+}
+
+// VerifyState verifies if the state is matching with expected signature
+func (a *Authenticator) VerifyState(s string) bool {
+	parts := strings.SplitN(s, ":", StatePartCount)
+	if len(parts) != StatePartCount {
+		return false
+	}
+
+	state := parts[0]
+	sig := parts[1]
+
+	mac := hmac.New(sha256.New, a.HMACSecret)
+	mac.Write([]byte(state))
+	expectedSig := mac.Sum(nil)
+
+	decodedSig, err := hex.DecodeString(sig)
+	if err != nil {
+		return false
+	}
+
+	return hmac.Equal(decodedSig, expectedSig)
+}
+
+// Exchange allows to exchange token with provider
+func (a *Authenticator) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
+	return a.Config.Exchange(ctx, code)
+}
+
+// GetClientID returns the OAuth's clientID
+func (a *Authenticator) GetClientID() string {
+	return a.Config.ClientID
+}
+
+// GetClientOrigin returns the client origin that will redirect by authenticator
+func (a *Authenticator) GetClientOrigin() string {
+	return a.ClientOrigin
 }
 
 // ExtractTokenFromRequest gets the bearer token from the Authorization header.

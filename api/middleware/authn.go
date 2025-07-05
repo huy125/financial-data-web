@@ -4,8 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/authenticator"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
@@ -16,6 +15,12 @@ const (
 	UserContextKey ContextKey = "user"
 )
 
+// Authenticator defines the interface for handling authorization middleware.
+type Authenticator interface {
+	ExtractTokenFromRequest(r *http.Request) string
+	VerifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error)
+}
+
 // Claims represents the user profile claims from the ID token.
 type Claims struct {
 	Email   string `json:"email"`
@@ -25,7 +30,7 @@ type Claims struct {
 }
 
 // RequireAuth is a helper function to protect individual routes.
-func RequireAuth(handlerFunc http.HandlerFunc, a authenticator.Authenticator) http.HandlerFunc {
+func RequireAuth(handlerFunc http.HandlerFunc, a Authenticator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler := AuthorizationMiddleware(handlerFunc, a)
 		handler.ServeHTTP(w, r)
@@ -33,12 +38,12 @@ func RequireAuth(handlerFunc http.HandlerFunc, a authenticator.Authenticator) ht
 }
 
 // AuthorizationMiddleware protects routes that require authentication.
-func AuthorizationMiddleware(next http.Handler, a authenticator.Authenticator) http.Handler {
+func AuthorizationMiddleware(next http.Handler, a Authenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get token from the Authorization header
 		tokenString := a.ExtractTokenFromRequest(r)
 		if tokenString == "" {
-			http.Error(w, authenticator.ErrMissingAuthHeader.Error(), http.StatusUnauthorized)
+			http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 			return
 		}
 		token := &oauth2.Token{
@@ -48,15 +53,14 @@ func AuthorizationMiddleware(next http.Handler, a authenticator.Authenticator) h
 		// Verify the token
 		idToken, err := a.VerifyAccessToken(r.Context(), token)
 		if err != nil {
-			a.Log.Error("Invalid token", lctx.Error("err", err))
-			http.Error(w, authenticator.ErrInvalidToken.Error(), http.StatusUnauthorized)
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 
 		// Extract user claims
 		var claims Claims
 		if err := idToken.Claims(&claims); err != nil {
-			http.Error(w, authenticator.ErrClaimsParseFail.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to parse claims", http.StatusInternalServerError)
 			return
 		}
 

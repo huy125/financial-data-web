@@ -17,7 +17,7 @@ import (
 	lctx "github.com/hamba/logger/v2/ctx"
 	"github.com/hamba/pkg/v2/http/server"
 	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/authenticator"
+	"github.com/huy125/financial-data-web/pkg/authenticator"
 	"github.com/huy125/financial-data-web/store"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/attribute"
