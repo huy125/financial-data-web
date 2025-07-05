@@ -11,24 +11,24 @@ import (
 // LogoutHandler handles the Auth0 logout process.
 // This should be called when the user wants to log out.
 func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	token := extractTokenFromRequest(r)
+	token := a.ExtractTokenFromRequest(r)
 	if token != "" {
 		err := a.revokeToken(r.Context(), token)
-		if err != nil && a.log != nil {
-			a.log.Error("Failed to revoke token", lctx.Err(err))
+		if err != nil && a.Log != nil {
+			a.Log.Error("Failed to revoke token", lctx.Err(err))
 		}
 	}
 
 	u, err := a.getBaseURL()
 	if err != nil {
-		a.log.Error("Failed to get domain", lctx.Err(err))
+		a.Log.Error("Failed to get domain", lctx.Err(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logoutURL, err := url.Parse(u + "/v2/logout")
 	if err != nil {
-		a.log.Error("Failed to parse logout URL", lctx.Err(err))
+		a.Log.Error("Failed to parse logout URL", lctx.Err(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -48,7 +48,7 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	parameters.Add("client_id", a.Config.ClientID)
 	logoutURL.RawQuery = parameters.Encode()
 
-	a.log.Info("User logout initiated", lctx.Str("return_to", returnTo))
+	a.Log.Info("User logout initiated", lctx.Str("return_to", returnTo))
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",

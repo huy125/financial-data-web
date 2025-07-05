@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/huy125/financial-data-web/authenticator"
+	"github.com/huy125/financial-data-web/api/middleware"
 	"github.com/huy125/financial-data-web/store"
 )
 
@@ -154,8 +154,8 @@ func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
-	userCtx := r.Context().Value(authenticator.UserContextKey)
-	claims, ok := userCtx.(authenticator.Claims)
+	userCtx := r.Context().Value(middleware.UserContextKey)
+	claims, ok := userCtx.(middleware.Claims)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
 		return

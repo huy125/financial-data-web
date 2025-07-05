@@ -24,8 +24,13 @@ type Authenticator struct {
 	APIAudience  string
 	ClientOrigin string
 
-	log *logger.Logger
+	Log *logger.Logger
 }
+
+const (
+	AuthHeader       string = "Authorization"
+	AuthHeaderPrefix string = "Bearer "
+)
 
 // Option defines a function type to apply options to Authenticator.
 type Option func(*Authenticator)
@@ -63,7 +68,7 @@ func WithClientOrigin(origin string) Option {
 // WithLogger sets the logger for the authenticator.
 func WithLogger(log *logger.Logger) Option {
 	return func(a *Authenticator) {
-		a.log = log.With(lctx.Str("component", "authenticator"))
+		a.Log = log.With(lctx.Str("component", "authenticator"))
 	}
 }
 
@@ -109,8 +114,8 @@ func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*
 	return verifier.Verify(ctx, rawIDToken)
 }
 
-// verifyAccessToken verifies an access token.
-func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+// VerifyAccessToken verifies an access token.
+func (a *Authenticator) VerifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
 	oidcConfig := &oidc.Config{
 		ClientID: a.APIAudience,
 	}
@@ -169,8 +174,8 @@ func (a *Authenticator) getBaseURL() (string, error) {
 	return strings.TrimSuffix(endpoint, u.RequestURI()), nil
 }
 
-// extractTokenFromRequest gets the bearer token from the Authorization header.
-func extractTokenFromRequest(r *http.Request) string {
+// ExtractTokenFromRequest gets the bearer token from the Authorization header.
+func (a *Authenticator) ExtractTokenFromRequest(r *http.Request) string {
 	authHeader := r.Header.Get(AuthHeader)
 	if authHeader == "" {
 		return ""
