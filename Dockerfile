@@ -13,7 +13,7 @@ RUN go mod download
 COPY cmd/ ./cmd
 COPY api/ ./api
 COPY store/ ./store
-COPY authenticator/ ./authenticator
+COPY pkg/ ./pkg
 
 RUN go build -o server ./cmd/api-server
 

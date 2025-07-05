@@ -16,8 +16,6 @@ services:
   api:
     container_name: financial-data-api-server
     build:
-      context: ../
-      dockerfile: ./dev-setup/api/Dockerfile
       target: dev
       args:
         CONFIG_PATH: ${CONFIG_PATH}
