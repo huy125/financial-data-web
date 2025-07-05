@@ -20,6 +20,7 @@ type DB struct {
 
 type Option func(*DB)
 
+// With DSN sets the Data Source Name
 func WithDSN(dsn string) Option {
 	return func(p *DB) {
 		p.dsn = dsn
@@ -37,6 +38,7 @@ func NewDB(opts ...Option) (*DB, error) {
 		return nil, fmt.Errorf("parsing dsn: %w", err)
 	}
 
+	// TODO: Make these configurable in config file
 	config.MaxConns = 25
 	config.MinConns = 5
 	config.MaxConnLifetime = time.Minute * time.Duration(maxConnLifeTime)

@@ -182,6 +182,8 @@ func (s *Server) handleStoreError(w http.ResponseWriter, err error) {
 	case errors.Is(err, store.ErrNotFound):
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
+	case errors.As(err, &store.ValidationError{}):
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

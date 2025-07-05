@@ -59,17 +59,17 @@ func (c *CreateUser) Validate() error {
 	var errors ValidationErrors
 
 	if c.Email == "" {
-		errors = append(errors, ValidationError{Error: "email is required"})
+		errors = append(errors, ValidationError{Err: "email is required"})
 	} else if !isValidEmail(c.Email) {
-		errors = append(errors, ValidationError{Error: "email is invalid"})
+		errors = append(errors, ValidationError{Err: "email is invalid"})
 	}
 
 	if c.Firstname == "" {
-		errors = append(errors, ValidationError{Error: "firstname is required"})
+		errors = append(errors, ValidationError{Err: "firstname is required"})
 	}
 
 	if c.Lastname == "" {
-		errors = append(errors, ValidationError{Error: "lastname is required"})
+		errors = append(errors, ValidationError{Err: "lastname is required"})
 	}
 
 	if len(errors) > 0 {
@@ -82,7 +82,7 @@ func (c *CreateUser) Validate() error {
 // Validate validates an UpdateUser configuration.
 func (u *UpdateUser) Validate() error {
 	if u.ID == uuid.Nil {
-		return ValidationErrors{ValidationError{Error: "id is required"}}
+		return ValidationErrors{ValidationError{Err: "id is required"}}
 	}
 
 	return u.CreateUser.Validate()
