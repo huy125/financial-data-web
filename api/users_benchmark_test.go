@@ -13,6 +13,7 @@ import (
 	"github.com/huy125/finscope/store"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 )
 
 func BenchmarkGetUserHandler(b *testing.B) {
@@ -32,12 +33,11 @@ func BenchmarkGetUserHandler(b *testing.B) {
 	storeMock.On("FindUser", id).Return(wantUserModel, nil)
 
 	authMock := &authenticatorMock{}
-	authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
-		Return(func(h http.HandlerFunc) http.HandlerFunc {
-			return func(w http.ResponseWriter, r *http.Request) {
-				h(w, r)
-			}
-		})
+	idToken := createIDToken(b)
+	authMock.On("ExtractTokenFromRequest", mock.AnythingOfType("*http.Request")).
+		Return("valid-token")
+	authMock.On("VerifyAccessToken", mock.AnythingOfType("*context.timerCtx"), &oauth2.Token{AccessToken: "valid-token"}).
+		Return(idToken, nil)
 
 	obsvr := observe.NewFake()
 	srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
