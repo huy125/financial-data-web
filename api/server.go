@@ -9,8 +9,8 @@ import (
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
 	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/api/middleware"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api/middleware"
+	"github.com/huy125/finscope/store"
 	"golang.org/x/oauth2"
 )
 

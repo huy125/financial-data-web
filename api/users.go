@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/huy125/financial-data-web/api/middleware"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api/middleware"
+	"github.com/huy125/finscope/store"
 )
 
 const requestTimeout = 5

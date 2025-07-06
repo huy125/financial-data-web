@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hamba/cmd/v2/observe"
-	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api"
+	"github.com/huy125/finscope/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

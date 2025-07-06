@@ -14,7 +14,7 @@ import (
 	"time"
 
 	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/store"
 )
 
 // StockMetadata represents the metadata of a stock.

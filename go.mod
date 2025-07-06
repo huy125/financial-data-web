@@ -1,4 +1,4 @@
-module github.com/huy125/financial-data-web
+module github.com/huy125/finscope
 
 go 1.24
 
