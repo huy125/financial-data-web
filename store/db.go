@@ -20,7 +20,7 @@ type DB struct {
 
 type Option func(*DB)
 
-// With DSN sets the Data Source Name
+// WithDSN sets the Data Source Name.
 func WithDSN(dsn string) Option {
 	return func(p *DB) {
 		p.dsn = dsn

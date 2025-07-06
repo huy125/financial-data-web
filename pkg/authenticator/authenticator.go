@@ -34,8 +34,8 @@ type Authenticator struct {
 }
 
 const (
-	AuthHeader       string = "Authorization"
-	AuthHeaderPrefix string = "Bearer "
+	AuthHeader              string = "Authorization"
+	AuthHeaderPrefix        string = "Bearer "
 	StateGenerationByteSize        = 32
 	StatePartCount                 = 2
 )
@@ -172,7 +172,7 @@ func (a *Authenticator) RevokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-// GetBaseURL returns the auth0 provider endpoint URL
+// GetBaseURL returns the auth0 provider endpoint URL.
 func (a *Authenticator) GetBaseURL() (string, error) {
 	endpoint := a.Provider.Endpoint().AuthURL
 	u, err := url.Parse(endpoint)
@@ -183,7 +183,7 @@ func (a *Authenticator) GetBaseURL() (string, error) {
 	return strings.TrimSuffix(endpoint, u.RequestURI()), nil
 }
 
-// GenerateState computes the state based on HMACSecret
+// GenerateState computes the state based on HMACSecret.
 func (a *Authenticator) GenerateState() (string, error) {
 	b := make([]byte, StateGenerationByteSize)
 	_, err := rand.Read(b)
@@ -199,7 +199,7 @@ func (a *Authenticator) GenerateState() (string, error) {
 	return state + ":" + hex.EncodeToString(signature), nil
 }
 
-// VerifyState verifies if the state is matching with expected signature
+// VerifyState verifies if the state is matching with expected signature.
 func (a *Authenticator) VerifyState(s string) bool {
 	parts := strings.SplitN(s, ":", StatePartCount)
 	if len(parts) != StatePartCount {
@@ -221,17 +221,17 @@ func (a *Authenticator) VerifyState(s string) bool {
 	return hmac.Equal(decodedSig, expectedSig)
 }
 
-// Exchange allows to exchange token with provider
+// Exchange allows to exchange token with provider.
 func (a *Authenticator) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
 	return a.Config.Exchange(ctx, code)
 }
 
-// GetClientID returns the OAuth's clientID
+// GetClientID returns the OAuth's clientID.
 func (a *Authenticator) GetClientID() string {
 	return a.Config.ClientID
 }
 
-// GetClientOrigin returns the client origin that will redirect by authenticator
+// GetClientOrigin returns the client origin that will redirect by authenticator.
 func (a *Authenticator) GetClientOrigin() string {
 	return a.ClientOrigin
 }

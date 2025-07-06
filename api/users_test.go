@@ -435,9 +435,9 @@ func (m *storeMock) FindLatestStockMetrics(_ context.Context, stockID uuid.UUID)
 func (m *storeMock) CreateAnalysis(
 	_ context.Context,
 	userID, stockID uuid.UUID,
-	_ float64,
+	score float64,
 ) (*store.Analysis, error) {
-	args := m.Called(userID, stockID)
+	args := m.Called(userID, stockID, score)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
