@@ -29,7 +29,7 @@ func (s *Server) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	state, err := url.QueryUnescape(r.URL.Query().Get("state"))
 	if err != nil {
-		http.Error(w, "Invalid state", http.StatusBadRequest)
+		http.Error(w, "Invalid state format", http.StatusBadRequest)
 		return
 	}
 
