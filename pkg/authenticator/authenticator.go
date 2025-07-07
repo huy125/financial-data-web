@@ -33,11 +33,16 @@ type Authenticator struct {
 	log *logger.Logger
 }
 
+// Authorization headers constants.
 const (
-	AuthHeader              string = "Authorization"
-	AuthHeaderPrefix        string = "Bearer "
-	StateGenerationByteSize        = 32
-	StatePartCount                 = 2
+	AuthHeader       string = "Authorization"
+	AuthHeaderPrefix string = "Bearer "
+)
+
+// OAuth state token generation constants.
+const (
+	StateGenerationByteSize = 32
+	StatePartCount          = 2
 )
 
 // Option defines a function type to apply options to Authenticator.
@@ -188,7 +193,7 @@ func (a *Authenticator) GenerateState() (string, error) {
 	b := make([]byte, StateGenerationByteSize)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate random string: %w", err)
+		return "", fmt.Errorf("generating random string: %w", err)
 	}
 
 	state := base64.URLEncoding.EncodeToString(b)
@@ -200,25 +205,29 @@ func (a *Authenticator) GenerateState() (string, error) {
 }
 
 // VerifyState verifies if the state is matching with expected signature.
-func (a *Authenticator) VerifyState(s string) bool {
+func (a *Authenticator) VerifyState(s string) error {
 	parts := strings.SplitN(s, ":", StatePartCount)
 	if len(parts) != StatePartCount {
-		return false
+		return fmt.Errorf("invalid state format: expecting %d parts", StatePartCount)
 	}
 
 	state := parts[0]
 	sig := parts[1]
 
+	decodedSig, err := hex.DecodeString(sig)
+	if err != nil {
+		return fmt.Errorf("decoding signature: %w", err)
+	}
+
 	mac := hmac.New(sha256.New, a.HMACSecret)
 	mac.Write([]byte(state))
 	expectedSig := mac.Sum(nil)
 
-	decodedSig, err := hex.DecodeString(sig)
-	if err != nil {
-		return false
+	if !hmac.Equal(decodedSig, expectedSig) {
+		return fmt.Errorf("invalid signature: expected %x, got %x", expectedSig, decodedSig)
 	}
 
-	return hmac.Equal(decodedSig, expectedSig)
+	return nil
 }
 
 // Exchange allows to exchange token with provider.

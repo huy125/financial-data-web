@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/hamba/cmd/v2"
 	"github.com/hamba/cmd/v2/observe"
@@ -26,8 +27,10 @@ import (
 
 // Config holds application configuration parameters.
 type Config struct {
-	API  APIConfig  `json:"api"`
-	Auth AuthConfig `json:"auth"`
+	API    APIConfig    `json:"api"`
+	Pool   PoolConfig   `json:"pool"`
+	Auth   AuthConfig   `json:"auth"`
+	Cookie CookieConfig `json:"cookie"`
 }
 
 // APIConfig holds API specific configurations.
@@ -36,6 +39,14 @@ type APIConfig struct {
 	AlgorithmPath string `json:"algorithmPath"`
 	Host          string `json:"host"`
 	Port          string `json:"port"`
+}
+
+// PoolConfig holds database specific configuration.
+type PoolConfig struct {
+	MaxConns        int32 `json:"maxConnections"`
+	MinConns        int32 `json:"minConnections"`
+	MaxConnIdleTime int32 `json:"maxConnectionIdleTime"`
+	MaxConnLifetime int32 `json:"maxConnectionLifetime"`
 }
 
 // AuthConfig holds authenticator specific configurations.
@@ -47,6 +58,14 @@ type AuthConfig struct {
 	CallbackURL  string `json:"callbackUrl"`
 	APIAudience  string `json:"apiAudience"`
 	ClientOrigin string `json:"clientOrigin"`
+}
+
+// CookieConfig holds cookie specific configurations.
+type CookieConfig struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	HttpOnly bool   `json:"httpOnly"`
+	Secure   bool   `json:"secure"`
 }
 
 func main() {
@@ -90,7 +109,7 @@ func runServer(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(c.Context)
 	defer cancel()
 
-	obsrv, err := observe.NewFromCLI(c, "financial-rest-server", &observe.Options{
+	obsrv, err := observe.NewFromCLI(c, "finscope-rest-server", &observe.Options{
 		LogTimestamps: true,
 		LogTimeFormat: logger.TimeFormatISO8601,
 		StatsRuntime:  true,
@@ -105,16 +124,17 @@ func runServer(c *cli.Context) error {
 	if dsn == "" {
 		obsrv.Log.Error("dsn is required")
 	}
-	// Set up database
-	store, err := setupDatabase(dsn)
-	if err != nil {
-		obsrv.Log.Error("Could not set up store", lctx.Error("error", err))
-		return err
-	}
 
 	cfg, err := parseCfg(c)
 	if err != nil {
 		obsrv.Log.Error("Could not prepare config", lctx.Error("error", err))
+		return err
+	}
+
+	// Set up database
+	store, err := setupDatabase(dsn, cfg.Pool)
+	if err != nil {
+		obsrv.Log.Error("Could not set up store", lctx.Error("error", err))
 		return err
 	}
 
@@ -125,8 +145,14 @@ func runServer(c *cli.Context) error {
 		return err
 	}
 
+	cookie := &http.Cookie{
+		Name:     cfg.Cookie.Name,
+		Path:     cfg.Cookie.Path,
+		HttpOnly: cfg.Cookie.HttpOnly,
+		Secure:   cfg.Cookie.Secure,
+	}
 	addr := net.JoinHostPort(cfg.API.Host, cfg.API.Port)
-	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, store, auth, obsrv)
+	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, cookie, store, auth, obsrv)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
@@ -141,13 +167,18 @@ func runServer(c *cli.Context) error {
 	}
 
 	obsrv.Log.Info("Server terminated")
-
 	return nil
 }
 
 // setupDatabase creates and configures the database connection.
-func setupDatabase(dsn string) (*store.Store, error) {
-	db, err := store.NewDB(store.WithDSN(dsn))
+func setupDatabase(dsn string, cfg PoolConfig) (*store.Store, error) {
+	db, err := store.NewDB(
+		store.WithDSN(dsn),
+		store.WithMaxConns(cfg.MaxConns),
+		store.WithMinConns(cfg.MinConns),
+		store.WithMaxConnLifetime(time.Minute*time.Duration(cfg.MaxConnLifetime)),
+		store.WithMaxConnIdleTime(time.Minute*time.Duration(cfg.MaxConnIdleTime)),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up database: %w", err)
 	}
@@ -212,7 +243,15 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if err := c.Pool.validate(); err != nil {
+		return err
+	}
+
 	if err := c.Auth.validate(); err != nil {
+		return err
+	}
+
+	if err := c.Cookie.validate(); err != nil {
 		return err
 	}
 
@@ -231,6 +270,23 @@ func (c *APIConfig) validate() error {
 	}
 	if c.Port == "" {
 		return errors.New("port is required")
+	}
+
+	return nil
+}
+
+func (c *PoolConfig) validate() error {
+	if c.MaxConns <= 0 {
+		return errors.New("max connections is required")
+	}
+	if c.MinConns <= 0 {
+		return errors.New("min connections is required")
+	}
+	if c.MaxConnLifetime <= 0 {
+		return errors.New("max connection lifetime is required")
+	}
+	if c.MaxConnIdleTime <= 0 {
+		return errors.New("max connection idle time is required")
 	}
 
 	return nil
@@ -257,6 +313,17 @@ func (c *AuthConfig) validate() error {
 	}
 	if c.ClientOrigin == "" {
 		return errors.New("client origin is required")
+	}
+
+	return nil
+}
+
+func (c *CookieConfig) validate() error {
+	if c.Name == "" {
+		return errors.New("name is required")
+	}
+	if c.Path == "" {
+		return errors.New("path is required")
 	}
 
 	return nil

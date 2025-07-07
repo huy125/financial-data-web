@@ -2,16 +2,18 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
+
+	lctx "github.com/hamba/logger/v2/ctx"
 )
 
 // LoginHandler handles the authenticator login process.
 func (s *Server) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 	state, err := s.authenticator.GenerateState()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to generate random state: %v", err), http.StatusInternalServerError)
+		s.log.Error("Failed to generate random state", lctx.Err(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -20,7 +22,8 @@ func (s *Server) LoginHandler(w http.ResponseWriter, _ *http.Request) {
 
 	err = json.NewEncoder(w).Encode(map[string]string{"state": state})
 	if err != nil {
-		http.Error(w, "Failed to encode the response", http.StatusInternalServerError)
+		s.log.Error("Failed to encode the response", lctx.Err(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 }
@@ -33,7 +36,12 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if state == "" || !s.authenticator.VerifyState(state) {
+	if state == "" {
+		http.Error(w, "Missing state", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.authenticator.VerifyState(state); err != nil {
 		http.Error(w, "Invalid state", http.StatusBadRequest)
 		return
 	}
@@ -46,24 +54,20 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := s.authenticator.Exchange(r.Context(), code)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("%s: %v", "Failed to exchange token", err), http.StatusInternalServerError)
+		s.log.Error("Failed to exchange token", lctx.Err(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	// Verify the ID token
 	_, err = s.authenticator.VerifyToken(r.Context(), token)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("%s: %v", "Failed to verify token", err), http.StatusInternalServerError)
+		s.log.Error("Failed to verify token", lctx.Err(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    token.AccessToken,
-		HttpOnly: true,
-		Path:     "/",
-		Secure:   false, // true in production with HTTPS
-	})
+	http.SetCookie(w, s.authCookie)
 
 	http.Redirect(w, r, s.authenticator.GetClientOrigin(), http.StatusFound)
 }

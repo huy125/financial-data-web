@@ -11,13 +11,20 @@ import (
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/huy125/finscope/api"
 	"github.com/huy125/finscope/store"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )
 
 func BenchmarkGetUserHandler(b *testing.B) {
 	id := uuid.New()
+
+	cookieMock := &http.Cookie{
+		Name:     "test_access_token",
+		Value:    "test_jwt_access_token",
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   false,
+	}
 
 	storeMock := &storeMock{}
 	wantUserModel := &store.User{
@@ -34,13 +41,11 @@ func BenchmarkGetUserHandler(b *testing.B) {
 
 	authMock := &authenticatorMock{}
 	idToken := createIDToken(b)
-	authMock.On("ExtractTokenFromRequest", mock.AnythingOfType("*http.Request")).
-		Return("valid-token")
-	authMock.On("VerifyAccessToken", mock.AnythingOfType("*context.timerCtx"), &oauth2.Token{AccessToken: "valid-token"}).
-		Return(idToken, nil)
+	authMock.On("ExtractTokenFromRequest").Return("valid-token")
+	authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 	obsvr := observe.NewFake()
-	srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+	srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 	httpSrv := httptest.NewServer(srv)
 	b.Cleanup(func() { httpSrv.Close() })

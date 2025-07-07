@@ -101,6 +101,14 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := &http.Cookie{
+				Name:     "test_access_token",
+				Value:    "test_jwt_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			if test.wantCreateUser != nil {
 				storeMock.On("CreateUser", test.wantCreateUser).Return(test.wantUserModel, test.returnErr)
@@ -109,13 +117,11 @@ func TestServer_CreateUserHandler(t *testing.T) {
 			authMock := &authenticatorMock{}
 			idToken := createIDToken(t)
 
-			authMock.On("ExtractTokenFromRequest", mock.AnythingOfType("*http.Request")).
-				Return("valid-token")
-			authMock.On("VerifyAccessToken", mock.AnythingOfType("*context.timerCtx"), &oauth2.Token{AccessToken: "valid-token"}).
-				Return(idToken, nil)
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -227,6 +233,14 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := &http.Cookie{
+				Name:     "test_access_token",
+				Value:    "test_jwt_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			if test.wantUpdateUser != nil {
 				storeMock.On("UpdateUser", test.wantUpdateUser).Return(test.wantUserModel, test.returnErr)
@@ -235,13 +249,11 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 			authMock := &authenticatorMock{}
 			idToken := createIDToken(t)
 
-			authMock.On("ExtractTokenFromRequest", mock.AnythingOfType("*http.Request")).
-				Return("valid-token")
-			authMock.On("VerifyAccessToken", mock.AnythingOfType("*context.timerCtx"), &oauth2.Token{AccessToken: "valid-token"}).
-				Return(idToken, nil)
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -324,18 +336,24 @@ func TestServer_GetUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := &http.Cookie{
+				Name:     "test_access_token",
+				Value:    "test_jwt_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			storeMock.On("FindUser", id).Return(test.wantUserModel, test.returnErr)
 
 			authMock := &authenticatorMock{}
 			idToken := createIDToken(t)
-			authMock.On("ExtractTokenFromRequest", mock.AnythingOfType("*http.Request")).
-				Return("valid-token")
-			authMock.On("VerifyAccessToken", mock.AnythingOfType("*context.timerCtx"), &oauth2.Token{AccessToken: "valid-token"}).
-				Return(idToken, nil)
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -462,13 +480,13 @@ type authenticatorMock struct {
 	mock.Mock
 }
 
-func (m *authenticatorMock) ExtractTokenFromRequest(r *http.Request) string {
-	args := m.Called(r)
+func (m *authenticatorMock) ExtractTokenFromRequest(*http.Request) string {
+	args := m.Called()
 	return args.String(0)
 }
 
-func (m *authenticatorMock) VerifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
-	args := m.Called(ctx, token)
+func (m *authenticatorMock) VerifyAccessToken(_ context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+	args := m.Called(token)
 	return args.Get(0).(*oidc.IDToken), args.Error(1)
 }
 
@@ -482,9 +500,9 @@ func (m *authenticatorMock) GetBaseURL() (string, error) {
 	return args.String(), nil
 }
 
-func (m *authenticatorMock) VerifyState(s string) bool {
+func (m *authenticatorMock) VerifyState(s string) error {
 	args := m.Called(s)
-	return args.Bool(0)
+	return args.Error(0)
 }
 
 func (m *authenticatorMock) VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
@@ -515,15 +533,13 @@ func (m *authenticatorMock) GetClientOrigin() string {
 func createIDToken(tb testing.TB) *oidc.IDToken {
 	tb.Helper()
 
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		tb.Fatalf("creating server: %v", err)
-	}
+	private, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(tb, err)
 
 	s := &oidctest.Server{
 		PublicKeys: []oidctest.PublicKey{
 			{
-				PublicKey: priv.Public(),
+				PublicKey: private.Public(),
 				KeyID:     "my-key-id",
 				Algorithm: oidc.RS256,
 			},
@@ -543,13 +559,12 @@ func createIDToken(tb testing.TB) *oidc.IDToken {
 			"email": "foo@example.com",
 			"email_verified": true
 		}`
-	token := oidctest.SignIDToken(priv, "my-key-id", oidc.RS256, rawClaims)
+	token := oidctest.SignIDToken(private, "my-key-id", oidc.RS256, rawClaims)
 
 	ctx := context.Background()
 	p, err := oidc.NewProvider(ctx, srv.URL)
-	if err != nil {
-		tb.Fatalf("new provider: %v", err)
-	}
+	require.NoError(tb, err)
+
 	config := &oidc.Config{
 		ClientID: "my-client-id",
 		Now:      func() time.Time { return now },
@@ -557,9 +572,7 @@ func createIDToken(tb testing.TB) *oidc.IDToken {
 	v := p.VerifierContext(ctx, config)
 
 	idToken, err := v.Verify(ctx, token)
-	if err != nil {
-		tb.Fatalf("verify token: %v", err)
-	}
+	require.NoError(tb, err)
 
 	return idToken
 }

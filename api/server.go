@@ -40,7 +40,7 @@ type Authenticator interface {
 
 	GenerateState() (string, error)
 	GetBaseURL() (string, error)
-	VerifyState(s string) bool
+	VerifyState(s string) error
 	VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error)
 	RevokeToken(ctx context.Context, token string) error
 	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
@@ -52,8 +52,10 @@ type Authenticator interface {
 type Server struct {
 	h http.Handler
 
-	apiKey        string
-	filePath      string
+	apiKey     string
+	filePath   string
+	authCookie *http.Cookie
+
 	store         Store
 	authenticator Authenticator
 
@@ -61,10 +63,17 @@ type Server struct {
 }
 
 // New creates a new API server.
-func New(apiKey, filePath string, store Store, auth Authenticator, obsrv *observe.Observer) *Server {
+func New(
+	apiKey, filePath string,
+	authCookie *http.Cookie,
+	store Store,
+	auth Authenticator,
+	obsrv *observe.Observer,
+) *Server {
 	s := &Server{
 		apiKey:        apiKey,
 		filePath:      filePath,
+		authCookie:    authCookie,
 		store:         store,
 		authenticator: auth,
 
