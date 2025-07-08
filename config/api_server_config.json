@@ -18,7 +18,7 @@
     "apiAudience": "https://api.financial-data.com",
     "clientOrigin": "http://localhost:3000"
   },
-  "cookie": {
+  "cookieConfig": {
     "name": "access_token",
     "path": "/",
     "httpOnly": true,

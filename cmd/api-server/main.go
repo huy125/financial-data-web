@@ -27,10 +27,10 @@ import (
 
 // Config holds application configuration parameters.
 type Config struct {
-	API    APIConfig    `json:"api"`
-	Pool   PoolConfig   `json:"pool"`
-	Auth   AuthConfig   `json:"auth"`
-	Cookie CookieConfig `json:"cookie"`
+	API       APIConfig    `json:"api"`
+	Pool      PoolConfig   `json:"pool"`
+	Auth      AuthConfig   `json:"auth"`
+	CookieCfg CookieConfig `json:"cookieConfig"`
 }
 
 // APIConfig holds API specific configurations.
@@ -145,14 +145,14 @@ func runServer(c *cli.Context) error {
 		return err
 	}
 
-	cookie := &http.Cookie{
-		Name:     cfg.Cookie.Name,
-		Path:     cfg.Cookie.Path,
-		HttpOnly: cfg.Cookie.HttpOnly,
-		Secure:   cfg.Cookie.Secure,
+	cookieCfg := api.ServerCookieConfig{
+		Name:     cfg.CookieCfg.Name,
+		Path:     cfg.CookieCfg.Path,
+		HttpOnly: cfg.CookieCfg.HttpOnly,
+		Secure:   cfg.CookieCfg.Secure,
 	}
 	addr := net.JoinHostPort(cfg.API.Host, cfg.API.Port)
-	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, cookie, store, auth, obsrv)
+	h := api.New(cfg.API.Key, cfg.API.AlgorithmPath, cookieCfg, store, auth, obsrv)
 	server := server.GenericServer[context.Context]{
 		Addr:    addr,
 		Handler: h,
@@ -251,7 +251,7 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if err := c.Cookie.validate(); err != nil {
+	if err := c.CookieCfg.validate(); err != nil {
 		return err
 	}
 

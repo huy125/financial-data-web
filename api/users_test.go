@@ -101,9 +101,8 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			cookieMock := &http.Cookie{
+			cookieMock := api.ServerCookieConfig{
 				Name:     "test_access_token",
-				Value:    "test_jwt_access_token",
 				Path:     "/",
 				HttpOnly: false,
 				Secure:   false,
@@ -233,9 +232,8 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			cookieMock := &http.Cookie{
+			cookieMock := api.ServerCookieConfig{
 				Name:     "test_access_token",
-				Value:    "test_jwt_access_token",
 				Path:     "/",
 				HttpOnly: false,
 				Secure:   false,
@@ -336,9 +334,8 @@ func TestServer_GetUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			cookieMock := &http.Cookie{
+			cookieMock := api.ServerCookieConfig{
 				Name:     "test_access_token",
-				Value:    "test_jwt_access_token",
 				Path:     "/",
 				HttpOnly: false,
 				Secure:   false,

@@ -52,9 +52,9 @@ type Authenticator interface {
 type Server struct {
 	h http.Handler
 
-	apiKey     string
-	filePath   string
-	authCookie *http.Cookie
+	apiKey    string
+	filePath  string
+	cookieCfg ServerCookieConfig
 
 	store         Store
 	authenticator Authenticator
@@ -62,10 +62,18 @@ type Server struct {
 	log *logger.Logger
 }
 
+// ServerCookieConfig holds server cookie specific configurations.
+type ServerCookieConfig struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	HttpOnly bool   `json:"httpOnly"`
+	Secure   bool   `json:"secure"`
+}
+
 // New creates a new API server.
 func New(
 	apiKey, filePath string,
-	authCookie *http.Cookie,
+	cookieCfg ServerCookieConfig,
 	store Store,
 	auth Authenticator,
 	obsrv *observe.Observer,
@@ -73,7 +81,7 @@ func New(
 	s := &Server{
 		apiKey:        apiKey,
 		filePath:      filePath,
-		authCookie:    authCookie,
+		cookieCfg:     cookieCfg,
 		store:         store,
 		authenticator: auth,
 

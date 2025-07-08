@@ -18,9 +18,8 @@ import (
 func BenchmarkGetUserHandler(b *testing.B) {
 	id := uuid.New()
 
-	cookieMock := &http.Cookie{
+	cookieMock := api.ServerCookieConfig{
 		Name:     "test_access_token",
-		Value:    "test_jwt_access_token",
 		Path:     "/",
 		HttpOnly: false,
 		Secure:   false,

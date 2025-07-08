@@ -67,7 +67,14 @@ func (s *Server) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, s.authCookie)
+	cookie := &http.Cookie{
+		Name:     s.cookieCfg.Name,
+		Path:     s.cookieCfg.Path,
+		HttpOnly: s.cookieCfg.HttpOnly,
+		Secure:   s.cookieCfg.Secure,
+		Value:    token.AccessToken,
+	}
+	http.SetCookie(w, cookie)
 
 	http.Redirect(w, r, s.authenticator.GetClientOrigin(), http.StatusFound)
 }
