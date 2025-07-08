@@ -1,6 +1,6 @@
 # Finscope
 
-<p align="center"">
+<p align="center">
   <img src="img/finscope_logo.png" alt="Finscope Logo" width="200">
 </p>
 
