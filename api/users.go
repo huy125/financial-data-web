@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/huy125/financial-data-web/authenticator"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api/middleware"
+	"github.com/huy125/finscope/store"
 )
 
 const requestTimeout = 5
@@ -154,8 +154,8 @@ func (s *Server) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
-	userCtx := r.Context().Value(authenticator.UserContextKey)
-	claims, ok := userCtx.(authenticator.Claims)
+	userCtx := r.Context().Value(middleware.UserContextKey)
+	claims, ok := userCtx.(middleware.Claims)
 	if !ok {
 		http.Error(w, "Failed to get user claims", http.StatusInternalServerError)
 		return
@@ -182,6 +182,8 @@ func (s *Server) handleStoreError(w http.ResponseWriter, err error) {
 	case errors.Is(err, store.ErrNotFound):
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
+	case errors.As(err, &store.ValidationError{}):
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

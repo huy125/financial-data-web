@@ -1,4 +1,4 @@
-package authenticator
+package api
 
 import (
 	"fmt"
@@ -10,25 +10,25 @@ import (
 
 // LogoutHandler handles the Auth0 logout process.
 // This should be called when the user wants to log out.
-func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	token := extractTokenFromRequest(r)
+func (s *Server) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	token := s.authenticator.ExtractTokenFromRequest(r)
 	if token != "" {
-		err := a.revokeToken(r.Context(), token)
-		if err != nil && a.log != nil {
-			a.log.Error("Failed to revoke token", lctx.Err(err))
+		err := s.authenticator.RevokeToken(r.Context(), token)
+		if err != nil && s.log != nil {
+			s.log.Error("Failed to revoke token", lctx.Err(err))
 		}
 	}
 
-	u, err := a.getBaseURL()
+	u, err := s.authenticator.GetBaseURL()
 	if err != nil {
-		a.log.Error("Failed to get domain", lctx.Err(err))
+		s.log.Error("Failed to get domain", lctx.Err(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	logoutURL, err := url.Parse(u + "/v2/logout")
 	if err != nil {
-		a.log.Error("Failed to parse logout URL", lctx.Err(err))
+		s.log.Error("Failed to parse logout URL", lctx.Err(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -45,19 +45,21 @@ func (a *Authenticator) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	parameters := url.Values{}
 	parameters.Add("returnTo", returnTo)
-	parameters.Add("client_id", a.Config.ClientID)
+	parameters.Add("client_id", s.authenticator.GetClientID())
 	logoutURL.RawQuery = parameters.Encode()
 
-	a.log.Info("User logout initiated", lctx.Str("return_to", returnTo))
+	s.log.Info("User logout initiated", lctx.Str("return_to", returnTo))
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
+	cookie := &http.Cookie{
+		Name:     s.cookieCfg.Name,
+		Path:     s.cookieCfg.Path,
+		HttpOnly: s.cookieCfg.HttpOnly,
+		Secure:   s.cookieCfg.Secure,
 		Value:    "",
-		HttpOnly: true,
-		Path:     "/",
 		MaxAge:   -1,
-		Secure:   false, // true in production with HTTPS
-	})
+	}
+	http.SetCookie(w, cookie)
+
 	// Redirect to Auth0 logout URL
 	http.Redirect(w, r, logoutURL.String(), http.StatusTemporaryRedirect)
 }

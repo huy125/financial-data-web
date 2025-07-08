@@ -11,11 +11,11 @@ import (
 type Action string
 
 const (
-	StrongBuy  Action = "Strong Buy"
-	Buy        Action = "Buy"
-	Hold       Action = "Hold"
-	Sell       Action = "Sell"
-	StrongSell Action = "Strong Sell"
+	ActionStrongBuy  Action = "Strong ActionBuy"
+	ActionBuy        Action = "ActionBuy"
+	ActionHold       Action = "ActionHold"
+	ActionSell       Action = "ActionSell"
+	ActionStrongSell Action = "Strong ActionSell"
 )
 
 // Recommendation represents an actionable insight produced by a model's analysis.

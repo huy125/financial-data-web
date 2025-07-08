@@ -19,6 +19,9 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl
+    - mnd
+    - noinlineerr
+    - wsl_v5
   settings:
     depguard:
       rules:

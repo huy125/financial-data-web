@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"net/mail"
 	"time"
 
@@ -56,33 +57,29 @@ type UpdateUser struct {
 
 // Validate validates an CreateUser configuration.
 func (c *CreateUser) Validate() error {
-	var errors ValidationErrors
+	var err error
 
 	if c.Email == "" {
-		errors = append(errors, ValidationError{Error: "email is required"})
+		err = errors.Join(err, ValidationError{Err: "email is required"})
 	} else if !isValidEmail(c.Email) {
-		errors = append(errors, ValidationError{Error: "email is invalid"})
+		err = errors.Join(err, ValidationError{Err: "email is invalid"})
 	}
 
 	if c.Firstname == "" {
-		errors = append(errors, ValidationError{Error: "firstname is required"})
+		err = errors.Join(err, ValidationError{Err: "firstname is required"})
 	}
 
 	if c.Lastname == "" {
-		errors = append(errors, ValidationError{Error: "lastname is required"})
+		err = errors.Join(err, ValidationError{Err: "lastname is required"})
 	}
 
-	if len(errors) > 0 {
-		return errors
-	}
-
-	return nil
+	return err
 }
 
 // Validate validates an UpdateUser configuration.
 func (u *UpdateUser) Validate() error {
 	if u.ID == uuid.Nil {
-		return ValidationErrors{ValidationError{Error: "id is required"}}
+		return ValidationError{Err: "id is required"}
 	}
 
 	return u.CreateUser.Validate()
@@ -122,8 +119,8 @@ func (s *Store) FindUser(ctx context.Context, id uuid.UUID) (*User, error) {
 }
 
 func (s *Store) UpdateUser(ctx context.Context, u *UpdateUser) (*User, error) {
-	if errs := u.Validate(); errs != nil {
-		return nil, errs
+	if err := u.Validate(); err != nil {
+		return nil, err
 	}
 
 	user := &User{

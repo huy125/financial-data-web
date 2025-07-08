@@ -2,6 +2,12 @@ package authenticator
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +32,18 @@ type Authenticator struct {
 
 	log *logger.Logger
 }
+
+// Authorization headers constants.
+const (
+	AuthHeader       string = "Authorization"
+	AuthHeaderPrefix string = "Bearer "
+)
+
+// OAuth state token generation constants.
+const (
+	StateGenerationByteSize = 32
+	StatePartCount          = 2
+)
 
 // Option defines a function type to apply options to Authenticator.
 type Option func(*Authenticator)
@@ -95,11 +113,11 @@ func New(ctx context.Context, domain string, opts ...Option) (*Authenticator, er
 	return auth, nil
 }
 
-// verifyToken verifies the ID token and returns the parsed token.
-func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+// VerifyToken verifies the ID token and returns the parsed token.
+func (a *Authenticator) VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		return nil, ErrNoIDToken
+		return nil, errors.New("no id_token field in oauth2 token")
 	}
 
 	oidcConfig := &oidc.Config{
@@ -109,8 +127,8 @@ func (a *Authenticator) verifyToken(ctx context.Context, token *oauth2.Token) (*
 	return verifier.Verify(ctx, rawIDToken)
 }
 
-// verifyAccessToken verifies an access token.
-func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+// VerifyAccessToken verifies an access token.
+func (a *Authenticator) VerifyAccessToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
 	oidcConfig := &oidc.Config{
 		ClientID: a.APIAudience,
 	}
@@ -119,9 +137,9 @@ func (a *Authenticator) verifyAccessToken(ctx context.Context, token *oauth2.Tok
 	return verifier.Verify(ctx, token.AccessToken)
 }
 
-// revokeToken sends a request to Auth0 to revoke the token.
-func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
-	u, err := a.getBaseURL()
+// RevokeToken sends a request to Auth0 to revoke the token.
+func (a *Authenticator) RevokeToken(ctx context.Context, token string) error {
+	u, err := a.GetBaseURL()
 	if err != nil {
 		return fmt.Errorf("getting domain: %w", err)
 	}
@@ -159,7 +177,8 @@ func (a *Authenticator) revokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func (a *Authenticator) getBaseURL() (string, error) {
+// GetBaseURL returns the auth0 provider endpoint URL.
+func (a *Authenticator) GetBaseURL() (string, error) {
 	endpoint := a.Provider.Endpoint().AuthURL
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -169,8 +188,65 @@ func (a *Authenticator) getBaseURL() (string, error) {
 	return strings.TrimSuffix(endpoint, u.RequestURI()), nil
 }
 
-// extractTokenFromRequest gets the bearer token from the Authorization header.
-func extractTokenFromRequest(r *http.Request) string {
+// GenerateState computes the state based on HMACSecret.
+func (a *Authenticator) GenerateState() (string, error) {
+	b := make([]byte, StateGenerationByteSize)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", fmt.Errorf("generating random string: %w", err)
+	}
+
+	state := base64.URLEncoding.EncodeToString(b)
+	mac := hmac.New(sha256.New, a.HMACSecret)
+	mac.Write([]byte(state))
+	signature := mac.Sum(nil)
+
+	return state + ":" + hex.EncodeToString(signature), nil
+}
+
+// VerifyState verifies if the state is matching with expected signature.
+func (a *Authenticator) VerifyState(s string) error {
+	parts := strings.SplitN(s, ":", StatePartCount)
+	if len(parts) != StatePartCount {
+		return fmt.Errorf("invalid state format: expecting %d parts", StatePartCount)
+	}
+
+	state := parts[0]
+	sig := parts[1]
+
+	decodedSig, err := hex.DecodeString(sig)
+	if err != nil {
+		return fmt.Errorf("decoding signature: %w", err)
+	}
+
+	mac := hmac.New(sha256.New, a.HMACSecret)
+	mac.Write([]byte(state))
+	expectedSig := mac.Sum(nil)
+
+	if !hmac.Equal(decodedSig, expectedSig) {
+		return fmt.Errorf("invalid signature: expected %x, got %x", expectedSig, decodedSig)
+	}
+
+	return nil
+}
+
+// Exchange allows to exchange token with provider.
+func (a *Authenticator) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
+	return a.Config.Exchange(ctx, code)
+}
+
+// GetClientID returns the OAuth's clientID.
+func (a *Authenticator) GetClientID() string {
+	return a.Config.ClientID
+}
+
+// GetClientOrigin returns the client origin that will redirect by authenticator.
+func (a *Authenticator) GetClientOrigin() string {
+	return a.ClientOrigin
+}
+
+// ExtractTokenFromRequest gets the bearer token from the Authorization header.
+func (a *Authenticator) ExtractTokenFromRequest(r *http.Request) string {
 	authHeader := r.Header.Get(AuthHeader)
 	if authHeader == "" {
 		return ""

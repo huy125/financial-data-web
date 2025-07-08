@@ -4,11 +4,14 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/hamba/cmd/v2/observe"
 	"github.com/hamba/logger/v2"
 	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api/middleware"
+	"github.com/huy125/finscope/store"
+	"golang.org/x/oauth2"
 )
 
 // Store defines the interface for interacting with the application's persistent storage.
@@ -33,29 +36,52 @@ type Store interface {
 
 // Authenticator defines the interface for handling authentication flows within the application.
 type Authenticator interface {
-	LoginHandler(w http.ResponseWriter, r *http.Request)
-	CallbackHandler(w http.ResponseWriter, r *http.Request)
-	RequireAuth(handle http.HandlerFunc) http.HandlerFunc
-	LogoutHandler(w http.ResponseWriter, r *http.Request)
+	middleware.Authenticator
+
+	GenerateState() (string, error)
+	GetBaseURL() (string, error)
+	VerifyState(s string) error
+	VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error)
+	RevokeToken(ctx context.Context, token string) error
+	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
+	GetClientID() string
+	GetClientOrigin() string
 }
 
 // Server is the API server.
 type Server struct {
 	h http.Handler
 
-	apiKey        string
-	filePath      string
+	apiKey    string
+	filePath  string
+	cookieCfg ServerCookieConfig
+
 	store         Store
 	authenticator Authenticator
 
 	log *logger.Logger
 }
 
+// ServerCookieConfig holds server cookie specific configurations.
+type ServerCookieConfig struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	HttpOnly bool   `json:"httpOnly"`
+	Secure   bool   `json:"secure"`
+}
+
 // New creates a new API server.
-func New(apiKey, filePath string, store Store, auth Authenticator, obsrv *observe.Observer) *Server {
+func New(
+	apiKey, filePath string,
+	cookieCfg ServerCookieConfig,
+	store Store,
+	auth Authenticator,
+	obsrv *observe.Observer,
+) *Server {
 	s := &Server{
 		apiKey:        apiKey,
 		filePath:      filePath,
+		cookieCfg:     cookieCfg,
 		store:         store,
 		authenticator: auth,
 
@@ -76,19 +102,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /auth/login", s.authenticator.LoginHandler)
-	mux.HandleFunc("GET /auth/callback", s.authenticator.CallbackHandler)
-	mux.HandleFunc("GET /auth/logout", s.authenticator.LogoutHandler)
+	mux.HandleFunc("GET /auth/login", s.LoginHandler)
+	mux.HandleFunc("GET /auth/callback", s.CallbackHandler)
+	mux.HandleFunc("GET /auth/logout", s.LogoutHandler)
 
 	mux.HandleFunc("GET /", s.HelloServerHandler)
 
-	mux.HandleFunc("GET /stocks", s.authenticator.RequireAuth(s.GetStockBySymbolHandler))
-	mux.HandleFunc("GET /stocks/analysis", s.authenticator.RequireAuth(s.GetStockAnalysisBySymbolHandler))
+	mux.HandleFunc("GET /stocks", middleware.RequireAuth(s.GetStockBySymbolHandler, s.authenticator))
+	mux.HandleFunc("GET /stocks/analysis", middleware.RequireAuth(s.GetStockAnalysisBySymbolHandler, s.authenticator))
 
-	mux.HandleFunc("POST /users", s.authenticator.RequireAuth(s.CreateUserHandler))
-	mux.HandleFunc("PUT /users/{id}", s.authenticator.RequireAuth(s.UpdateUserHandler))
-	mux.HandleFunc("GET /users/{id}", s.authenticator.RequireAuth(s.GetUserHandler))
-	mux.HandleFunc("GET /users/me", s.authenticator.RequireAuth(s.GetCurrentUserHandler))
+	mux.HandleFunc("POST /users", middleware.RequireAuth(s.CreateUserHandler, s.authenticator))
+	mux.HandleFunc("PUT /users/{id}", middleware.RequireAuth(s.UpdateUserHandler, s.authenticator))
+	mux.HandleFunc("GET /users/{id}", middleware.RequireAuth(s.GetUserHandler, s.authenticator))
+	mux.HandleFunc("GET /users/me", middleware.RequireAuth(s.GetCurrentUserHandler, s.authenticator))
 
 	return corsMiddleware(mux)
 }

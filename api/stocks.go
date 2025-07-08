@@ -14,7 +14,7 @@ import (
 	"time"
 
 	lctx "github.com/hamba/logger/v2/ctx"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/store"
 )
 
 // StockMetadata represents the metadata of a stock.
@@ -29,7 +29,8 @@ type StockMetadata struct {
 // TimeSeriesDaily represents the daily time series of a stock.
 type TimeSeriesDaily struct {
 	StockMetadata `json:"Meta Data"`
-	TimeSeries    map[string]map[string]string `json:"Time Series (Daily)"`
+
+	TimeSeries map[string]map[string]string `json:"Time Series (Daily)"`
 }
 
 // OverviewMetadata represents the overall financial information of a stock.
@@ -68,13 +69,6 @@ type fetchResult struct {
 	balanceSheet                 *BalanceSheetMetadata
 	overviewErr, balanceSheetErr error
 }
-
-const (
-	StrongBuy = 8
-	Buy       = 6
-	Hold      = 4
-	Sell      = 2
-)
 
 // GetStockBySymbolHandler fetches stock data for the given symbol.
 func (s *Server) GetStockBySymbolHandler(w http.ResponseWriter, r *http.Request) {
@@ -174,9 +168,6 @@ func (s *Server) analyzeStock(ctx context.Context, stock *store.Stock) (*store.R
 		return nil, fmt.Errorf("error while scoring for stock %s: %w", stock.Symbol, err)
 	}
 
-	action := getAction(score)
-	confidenceLevel := calculateConfidenceLevel(stockMetrics)
-
 	createUser := &store.CreateUser{
 		Email:     "analysis@stock.com",
 		Firstname: "Analysis",
@@ -192,6 +183,8 @@ func (s *Server) analyzeStock(ctx context.Context, stock *store.Stock) (*store.R
 		return nil, fmt.Errorf("error while creating analysis for stock %s: %w", stock.Symbol, err)
 	}
 
+	action := recommendation(score)
+	confidenceLevel := calculateConfidenceLevel(stockMetrics)
 	recommendation, err := s.store.CreateRecommendation(ctx, analysis.ID, action, confidenceLevel, "")
 	if err != nil {
 		return nil, fmt.Errorf("error while creating recommendation for stock %s: %w", stock.Symbol, err)
@@ -398,18 +391,18 @@ func (s *Server) scoreStock(ctx context.Context, stock *store.Stock) (float64, e
 	return result, nil
 }
 
-func getAction(score float64) store.Action {
+func recommendation(score float64) store.Action {
 	switch {
-	case score >= StrongBuy:
-		return store.StrongBuy
-	case score >= Buy:
-		return store.Buy
-	case score >= Hold:
-		return store.Hold
-	case score >= Sell:
-		return store.Sell
+	case score >= 8:
+		return store.ActionStrongBuy
+	case score >= 6:
+		return store.ActionBuy
+	case score >= 4:
+		return store.ActionHold
+	case score >= 2:
+		return store.ActionSell
 	default:
-		return store.StrongSell
+		return store.ActionStrongSell
 	}
 }
 

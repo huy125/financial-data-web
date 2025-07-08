@@ -1,17 +1,12 @@
-# financial-data-web
+# Finscope
 
-A financial information aggregator service that provides a REST API.
+<p style="text-align: center;">
+  <img src="img/finscope_logo.png" alt="Finscope Logo" width="200">
+</p>
 
-## Entity Relationship Schema
-
-🎨 [Entity Schema](docs/entity-relationship.md)
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed on your machine:
-
-- [Docker](https://www.docker.com/get-started) (including Docker Compose)
-- [Postman](https://www.postman.com/downloads/) (optional, for testing the API)
+A financial advisor API server that aggregates information
+and gives investment recommendations based on the financial market.
+It also facilitates the investment decision-making, analyses and gives investors the vision about their profile.
 
 ## Getting Started
 
@@ -21,7 +16,7 @@ Follow these steps to set up and run the application locally.
 
 ```bash
 git clone https://github.com/huy125/financial-data-web.git
-cd financial-data-web
+cd finscope
 ```
 
 ### 2. Configure Environment Variables
@@ -38,7 +33,7 @@ DATA_SOURCE_NAME = postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${
 Run the following command to start the application using Docker Compose:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This command will build the Docker images and start the containers defined in the `docker-compose.yml` file.
@@ -49,30 +44,4 @@ Once the containers are running, you can access the application at:
 
 ```
 http://localhost:8080
-```
-
-### 5. Testing the API
-
-You can use Postman to test the API. Here’s how to make a request to get stock data:
-
-1. Open Postman.
-2. Create a new GET request.
-3. Enter the following URL:
-
-   ```
-   http://localhost:8080
-   ```
-
-4. The response should return:
-
-    ```
-    Welcome to my financial server!!!
-    ```
-
-### 6. Stopping the Application
-
-To stop the application, use:
-
-```bash
-docker-compose down
 ```

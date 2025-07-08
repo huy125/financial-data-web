@@ -3,20 +3,26 @@ package api_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/coreos/go-oidc/v3/oidc/oidctest"
 	"github.com/google/uuid"
 	"github.com/hamba/cmd/v2/observe"
-	"github.com/huy125/financial-data-web/api"
-	"github.com/huy125/financial-data-web/store"
+	"github.com/huy125/finscope/api"
+	"github.com/huy125/finscope/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -95,21 +101,26 @@ func TestServer_CreateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := api.ServerCookieConfig{
+				Name:     "test_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			if test.wantCreateUser != nil {
 				storeMock.On("CreateUser", test.wantCreateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
 			authMock := &authenticatorMock{}
-			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
-				Return(func(h http.HandlerFunc) http.HandlerFunc {
-					return func(w http.ResponseWriter, r *http.Request) {
-						h(w, r)
-					}
-				})
+			idToken := createIDToken(t)
+
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -221,21 +232,26 @@ func TestServer_UpdateUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := api.ServerCookieConfig{
+				Name:     "test_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			if test.wantUpdateUser != nil {
 				storeMock.On("UpdateUser", test.wantUpdateUser).Return(test.wantUserModel, test.returnErr)
 			}
 
 			authMock := &authenticatorMock{}
-			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
-				Return(func(h http.HandlerFunc) http.HandlerFunc {
-					return func(w http.ResponseWriter, r *http.Request) {
-						h(w, r)
-					}
-				})
+			idToken := createIDToken(t)
+
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -318,19 +334,23 @@ func TestServer_GetUserHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cookieMock := api.ServerCookieConfig{
+				Name:     "test_access_token",
+				Path:     "/",
+				HttpOnly: false,
+				Secure:   false,
+			}
+
 			storeMock := &storeMock{}
 			storeMock.On("FindUser", id).Return(test.wantUserModel, test.returnErr)
 
 			authMock := &authenticatorMock{}
-			authMock.On("RequireAuth", mock.AnythingOfType("http.HandlerFunc")).
-				Return(func(h http.HandlerFunc) http.HandlerFunc {
-					return func(w http.ResponseWriter, r *http.Request) {
-						h(w, r)
-					}
-				})
+			idToken := createIDToken(t)
+			authMock.On("ExtractTokenFromRequest").Return("valid-token")
+			authMock.On("VerifyAccessToken", &oauth2.Token{AccessToken: "valid-token"}).Return(idToken, nil)
 
 			obsvr := observe.NewFake()
-			srv := api.New(testAPIKey, testFilePath, storeMock, authMock, obsvr)
+			srv := api.New(testAPIKey, testFilePath, cookieMock, storeMock, authMock, obsvr)
 
 			httpSrv := httptest.NewServer(srv)
 			t.Cleanup(func() { httpSrv.Close() })
@@ -432,7 +452,7 @@ func (m *storeMock) CreateAnalysis(
 	userID, stockID uuid.UUID,
 	score float64,
 ) (*store.Analysis, error) {
-	args := m.Called(userID, stockID)
+	args := m.Called(userID, stockID, score)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -457,18 +477,99 @@ type authenticatorMock struct {
 	mock.Mock
 }
 
-func (m *authenticatorMock) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
+func (m *authenticatorMock) ExtractTokenFromRequest(*http.Request) string {
+	args := m.Called()
+	return args.String(0)
 }
 
-func (m *authenticatorMock) CallbackHandler(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
+func (m *authenticatorMock) VerifyAccessToken(_ context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+	args := m.Called(token)
+	return args.Get(0).(*oidc.IDToken), args.Error(1)
 }
 
-func (m *authenticatorMock) RequireAuth(handle http.HandlerFunc) http.HandlerFunc {
-	return handle
+func (m *authenticatorMock) GenerateState() (string, error) {
+	args := m.Called()
+	return args.String(), nil
 }
 
-func (m *authenticatorMock) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
+func (m *authenticatorMock) GetBaseURL() (string, error) {
+	args := m.Called()
+	return args.String(), nil
+}
+
+func (m *authenticatorMock) VerifyState(s string) error {
+	args := m.Called(s)
+	return args.Error(0)
+}
+
+func (m *authenticatorMock) VerifyToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
+	args := m.Called(ctx, token)
+	return args.Get(0).(*oidc.IDToken), args.Error(1)
+}
+
+func (m *authenticatorMock) RevokeToken(ctx context.Context, token string) error {
+	args := m.Called(ctx, token)
+	return args.Error(0)
+}
+
+func (m *authenticatorMock) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
+	args := m.Called(ctx, code)
+	return args.Get(0).(*oauth2.Token), args.Error(1)
+}
+
+func (m *authenticatorMock) GetClientID() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *authenticatorMock) GetClientOrigin() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func createIDToken(tb testing.TB) *oidc.IDToken {
+	tb.Helper()
+
+	private, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(tb, err)
+
+	s := &oidctest.Server{
+		PublicKeys: []oidctest.PublicKey{
+			{
+				PublicKey: private.Public(),
+				KeyID:     "my-key-id",
+				Algorithm: oidc.RS256,
+			},
+		},
+	}
+
+	srv := httptest.NewServer(s)
+	defer tb.Cleanup(srv.Close)
+	s.SetIssuer(srv.URL)
+
+	now := time.Now()
+	rawClaims := `{
+			"iss": "` + srv.URL + `",
+			"aud": "my-client-id",
+			"sub": "foo",
+			"exp": ` + strconv.FormatInt(now.Add(time.Hour).Unix(), 10) + `,
+			"email": "foo@example.com",
+			"email_verified": true
+		}`
+	token := oidctest.SignIDToken(private, "my-key-id", oidc.RS256, rawClaims)
+
+	ctx := context.Background()
+	p, err := oidc.NewProvider(ctx, srv.URL)
+	require.NoError(tb, err)
+
+	config := &oidc.Config{
+		ClientID: "my-client-id",
+		Now:      func() time.Time { return now },
+	}
+	v := p.VerifierContext(ctx, config)
+
+	idToken, err := v.Verify(ctx, token)
+	require.NoError(tb, err)
+
+	return idToken
 }

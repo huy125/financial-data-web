@@ -1,6 +1,6 @@
 services:
   db:
-    container_name: financial-data-db
+    container_name: finscope-store
     image: postgres:17
     environment:
       - POSTGRES_USER=${DB_USER}
@@ -14,10 +14,8 @@ services:
       - internal_network
 
   api:
-    container_name: financial-data-api-server
+    container_name: finscope-api-server
     build:
-      context: ../
-      dockerfile: ./dev-setup/api/Dockerfile
       target: dev
       args:
         CONFIG_PATH: ${CONFIG_PATH}
