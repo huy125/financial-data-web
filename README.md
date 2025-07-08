@@ -4,6 +4,18 @@
   <img src="img/finscope_logo.png" alt="Finscope Logo" width="200">
 </p>
 
+<p align="center">
+    <a href="https://goreportcard.com/report/github.com/huy125/finscope">
+        <img src="https://goreportcard.com/badge/github.com/huy125/finscope" />
+    </a>
+    <a href="https://github.com/huy125/finscope?tab=MIT-1-ov-file">
+        <img src="https://img.shields.io/github/license/huy125/finscope?style=flat" />
+    </a>
+    <a href="https://pkg.go.dev/github.com/huy125/finscope">
+        <img src="https://pkg.go.dev/badge/github.com/huy125/finscope.svg" alt="Go Reference">
+    </a>
+</p>
+
 A financial advisor API server that aggregates information
 and gives investment recommendations based on the financial market.
 It also facilitates the investment decision-making, analyses and gives investors the vision about their profile.
