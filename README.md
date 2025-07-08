@@ -1,8 +1,11 @@
 # Finscope
 
-<p align="center"><img src="img/finscrope_logo.jpg" width="250"/></p>
+<p style="text-align: center;">
+  <img src="img/finscope_logo.png" alt="Finscope Logo" width="200">
+</p>
 
-A financial advisor API server that aggregates information and gives global insight about financial market.
+A financial advisor API server that aggregates information
+and gives investment recommendations based on the financial market.
 It also facilitates the investment decision-making, analyses and gives investors the vision about their profile.
 
 ## Getting Started

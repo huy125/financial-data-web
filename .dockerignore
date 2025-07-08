@@ -1,0 +1,41 @@
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose.yaml
+docker-compose.*.yaml
+
+# Git
+.git
+.gitignore
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build artifacts
+build
+bin
+dist
+docs
+migrations
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Editor/IDE files
+.idea/
+.vscode/
+*.swp
+
+# Environment files
+.env
+.env.*

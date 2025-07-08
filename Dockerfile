@@ -6,14 +6,8 @@ WORKDIR /build
 
 ARG VERSION="1.0.0"
 
-COPY go.mod .
-COPY go.sum .
+COPY . .
 RUN go mod download
-
-COPY cmd/ ./cmd
-COPY api/ ./api
-COPY store/ ./store
-COPY pkg/ ./pkg
 
 RUN go build -o server ./cmd/api-server
 
